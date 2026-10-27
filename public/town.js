@@ -33,10 +33,6 @@ export class Town {
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.background = new Image();
     this.background.src = 'assets/italian-coast-map-v2.png';
-    this.pixelMap = document.createElement('canvas');
-    this.pixelMap.width = 300;
-    this.pixelMap.height = 180;
-    this.pixelReady = false;
     this.keyDown = e => {
       if (this.paused) return;
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
@@ -133,17 +129,13 @@ export class Town {
     this.raf = requestAnimationFrame(this.loop);
   }
   draw() {
-    const c = this.ctx; c.imageSmoothingEnabled = false;
+    const c = this.ctx;
+    c.setTransform(this.canvas.width / WIDTH, 0, 0, this.canvas.height / HEIGHT, 0, 0);
+    c.imageSmoothingEnabled = true;
     const rect = (x, y, w, h, color) => { c.fillStyle = color; c.fillRect(Math.round(x), Math.round(y), w, h); };
     const label = (text, x, y, size = 12, color = '#244750') => { c.fillStyle = color; c.textAlign = 'center'; c.font = `bold ${size}px monospace`; c.fillText(text, x, y); };
     if (this.background.complete && this.background.naturalWidth) {
-      if (!this.pixelReady) {
-        const pixels = this.pixelMap.getContext('2d');
-        pixels.imageSmoothingEnabled = false;
-        pixels.drawImage(this.background, 0, 0, this.background.naturalWidth, this.background.naturalHeight, 0, 0, 300, 180);
-        this.pixelReady = true;
-      }
-      c.drawImage(this.pixelMap, 0, 0, WIDTH, HEIGHT);
+      c.drawImage(this.background, 0, 0, WIDTH, HEIGHT);
       for (const [text, topic, x, y, tone] of [
         ['HOTEL SOLE NASCENTE', 'PRICING · DEMAND · ELASTICITY · TR / MR', 250, 168, '#24464e'],
         ['MARTA’S BAKERY', 'PRODUCTION · MARGINAL PRODUCT', 167, 297, '#744934'],
