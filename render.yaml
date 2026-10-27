@@ -1,0 +1,6 @@
+services:
+  - type: web
+    runtime: static
+    name: hotel-sole-nascente-2d-game
+    buildCommand: "true"
+    staticPublishPath: ./public
