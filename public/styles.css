@@ -130,11 +130,11 @@ kbd { border: 1px solid #9db3ad; border-radius: 3px; padding: 1px 5px; font-weig
   .header { flex-wrap: wrap; gap: 0; padding: 6px 12px 0; }.brand { width: 50%; font-size: 14px; }.header-right { width: 50%; justify-content: end; }.header-right > span { display: none; }
   .tabs { order: 3; margin: 2px 0 0; height: 37px; width: 100%; }.tabs button { padding: 0 14px; }
   main { padding: 13px 10px 30px; }.workspace, .actor-columns, .notebook-grid { grid-template-columns: 1fr; }
-  .actor-left, .actor-right { min-height: auto; }.town-stage { aspect-ratio: 900 / 620; }.town-stage canvas { object-fit: cover; object-position: center; }
+  .actor-left, .actor-right { min-height: auto; }.town-stage { aspect-ratio: 900 / 540; }.town-stage canvas { object-fit: fill; }
   .town-controls > span { display: none; }.touch-controls { display: flex; }.town-controls { justify-content: center; }
   .side { grid-template-columns: 1fr 1fr; }.side .panel:first-child { grid-column: 1 / -1; }
 }
-@media (max-width: 510px) { .side { grid-template-columns: 1fr; }.field-grid { grid-template-columns: 1fr; }.actor-header { align-items: start; }.screen-head { align-items: start; }.town-stage { aspect-ratio: 900 / 790; }.portrait-band { padding: 15px; } }
+@media (max-width: 510px) { .side { grid-template-columns: 1fr; }.field-grid { grid-template-columns: 1fr; }.actor-header { align-items: start; }.screen-head { align-items: start; }.portrait-band { padding: 15px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
 
 /* In-world interviews and focused calculation workbench. */
@@ -256,9 +256,9 @@ main:has(.game-shell) { max-width: 1050px; padding-top: 20px; }
   .mobile-map-label { position: absolute; z-index: 1; display: grid; gap: 2px; width: max-content; max-width: 38%; padding: 3px 5px; color: #fff2d5; background: #23464de8; border: 1px solid #d8c797; text-align: center; font: 700 9px ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.15; pointer-events: none; }
   .mobile-map-label b { font-size: 9px; }
   .mobile-map-label span { color: #ecd99f; font-size: 8px; }
-  .mobile-map-label.hotel { left: 50%; top: 24%; transform: translateX(-50%); max-width: 46%; }
-  .mobile-map-label.bakery { left: 1%; top: 64%; background: #704734ee; }
-  .mobile-map-label.winery { right: 1%; top: 64%; background: #59465fee; }
+  .mobile-map-label.hotel { left: 10%; top: 36%; max-width: 39%; }
+  .mobile-map-label.bakery { left: 4%; top: 75%; background: #704734ee; }
+  .mobile-map-label.winery { right: 2%; top: 29%; background: #59465fee; }
 }
 
 /* Business-specific portraits and compact optional workbench tools. */
