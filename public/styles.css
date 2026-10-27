@@ -42,7 +42,7 @@ p { line-height: 1.5; margin: 8px 0; }
 .panel-heading strong { font-size: 13px; }
 .panel-heading small { color: #687e80; }
 .town-stage { position: relative; aspect-ratio: 900 / 540; background: #b9d4aa; overflow: hidden; }
-.town-stage canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; }
+.town-stage canvas { display: block; width: 100%; height: 100%; image-rendering: auto; touch-action: none; }
 .mobile-map-label { display: none; }
 .town-controls { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 12px; border-top: 1px solid #d7e2dd; color: #5c7071; font-size: 11px; }
 kbd { border: 1px solid #9db3ad; border-radius: 3px; padding: 1px 5px; font-weight: 700; background: #f5f7f1; }
