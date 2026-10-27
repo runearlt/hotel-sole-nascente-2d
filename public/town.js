@@ -1,22 +1,18 @@
 const WIDTH = 900, HEIGHT = 540, TILE = 20;
 const BUILDINGS = [
-  { id: 'farm', x: 68, y: 62, w: 176, h: 110, label: 'OLIVETO', tone: '#e0d7ae', roof: '#966a51', future: true },
-  { id: 'hotel', x: 327, y: 62, w: 247, h: 158, label: 'HOTEL SOLE NASCENTE', topic: 'PRICING · DEMAND · ELASTICITY · TR / MR', tone: '#f0d5a8', roof: '#b65c4d' },
-  { id: 'cafe', x: 648, y: 71, w: 181, h: 105, label: 'CAFFÈ DEL PORTO', tone: '#efc9ac', roof: '#a76752', future: true },
-  { id: 'bakery', x: 73, y: 306, w: 180, h: 120, label: 'MARTA’S BAKERY', topic: 'PRODUCTION · MARGINAL PRODUCT', tone: '#f2c894', roof: '#b87a4b' },
-  { id: 'winery', x: 638, y: 305, w: 190, h: 121, label: 'SOLE VINEYARD', topic: 'WINE SUPPLY · PURCHASING', tone: '#e6c7c5', roof: '#805e75' }
+  { id: 'hotel', x: 72, y: 42, w: 376, h: 195, label: 'HOTEL SOLE NASCENTE', topic: 'PRICING · DEMAND · ELASTICITY · TR / MR', tone: '#f0d5a8', roof: '#b65c4d' },
+  { id: 'bakery', x: 55, y: 305, w: 225, h: 142, label: 'MARTA’S BAKERY', topic: 'PRODUCTION · MARGINAL PRODUCT', tone: '#f2c894', roof: '#b87a4b' },
+  { id: 'winery', x: 678, y: 38, w: 211, h: 130, label: 'SOLE VINEYARD', topic: 'WINE SUPPLY · PURCHASING', tone: '#e6c7c5', roof: '#805e75' }
 ];
 const PEOPLE = [
-  { id: 'hotel', x: 450, y: 252, name: 'LUCIA', shirt: '#36596b' },
-  { id: 'bakery', x: 276, y: 448, name: 'MARTA', shirt: '#cf874b' },
-  { id: 'winery', x: 612, y: 448, name: 'SOFIA', shirt: '#765775' }
+  { id: 'hotel', x: 250, y: 265, name: 'LUCIA', shirt: '#36596b' },
+  { id: 'bakery', x: 212, y: 471, name: 'MARTA', shirt: '#cf874b' },
+  { id: 'winery', x: 776, y: 212, name: 'SOFIA', shirt: '#765775' }
 ];
 const ART_HITBOXES = [
-  { id: 'farm', x: 0, y: 54, w: 240, h: 190, future: true, label: 'OLIVETO' },
-  { id: 'hotel', x: 238, y: 0, w: 425, h: 222 },
-  { id: 'cafe', x: 742, y: 72, w: 158, h: 182, future: true, label: 'CAFFÈ DEL PORTO' },
-  { id: 'bakery', x: 0, y: 288, w: 313, h: 198 },
-  { id: 'winery', x: 576, y: 298, w: 324, h: 185 }
+  { id: 'hotel', x: 60, y: 32, w: 405, h: 215 },
+  { id: 'bakery', x: 48, y: 298, w: 244, h: 165 },
+  { id: 'winery', x: 666, y: 28, w: 230, h: 160 }
 ];
 const TREES = [[27, 214], [271, 207], [615, 214], [864, 217], [29, 390], [866, 390], [333, 330], [565, 330], [55, 463], [850, 465], [362, 440], [536, 440]];
 
@@ -36,7 +32,7 @@ export class Town {
     this.frameCount = 0;
     this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.background = new Image();
-    this.background.src = 'assets/italian-coast-map.png';
+    this.background.src = 'assets/italian-coast-map-v2.png';
     this.pixelMap = document.createElement('canvas');
     this.pixelMap.width = 300;
     this.pixelMap.height = 180;
@@ -142,18 +138,16 @@ export class Town {
     const label = (text, x, y, size = 12, color = '#244750') => { c.fillStyle = color; c.textAlign = 'center'; c.font = `bold ${size}px monospace`; c.fillText(text, x, y); };
     if (this.background.complete && this.background.naturalWidth) {
       if (!this.pixelReady) {
-        const sourceHeight = this.background.naturalWidth * HEIGHT / WIDTH;
-        const sourceY = (this.background.naturalHeight - sourceHeight) / 2;
         const pixels = this.pixelMap.getContext('2d');
         pixels.imageSmoothingEnabled = false;
-        pixels.drawImage(this.background, 0, sourceY, this.background.naturalWidth, sourceHeight, 0, 0, 300, 180);
+        pixels.drawImage(this.background, 0, 0, this.background.naturalWidth, this.background.naturalHeight, 0, 0, 300, 180);
         this.pixelReady = true;
       }
       c.drawImage(this.pixelMap, 0, 0, WIDTH, HEIGHT);
       for (const [text, topic, x, y, tone] of [
-        ['HOTEL SOLE NASCENTE', 'PRICING · DEMAND · ELASTICITY · TR / MR', 450, 154, '#24464e'],
-        ['MARTA’S BAKERY', 'PRODUCTION · MARGINAL PRODUCT', 155, 378, '#744934'],
-        ['SOLE VINEYARD', 'WINE SUPPLY · PURCHASING', 728, 380, '#58445f']
+        ['HOTEL SOLE NASCENTE', 'PRICING · DEMAND · ELASTICITY · TR / MR', 250, 168, '#24464e'],
+        ['MARTA’S BAKERY', 'PRODUCTION · MARGINAL PRODUCT', 167, 297, '#744934'],
+        ['SOLE VINEYARD', 'WINE SUPPLY · PURCHASING', 780, 118, '#58445f']
       ]) {
         const width = Math.max(text.length * 7 + 18, topic.length * 6 + 18);
         rect(x - width / 2, y - 15, width, 35, tone);
