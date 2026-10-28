@@ -9,6 +9,36 @@ const PEOPLE = [
   { id: 'bakery', x: 212, y: 471, name: 'MARTA', shirt: '#cf874b' },
   { id: 'winery', x: 776, y: 212, name: 'SOFIA', shirt: '#765775' }
 ];
+export const STREET_PEOPLE = [
+  {
+    id: 'ana', name: 'ANA', role: 'Visitor', shirt: '#397fa2', from: [525, 263], to: [605, 263], period: 4.8,
+    budget: 10, goods: [{ name: 'gelato', price: 4, marginalUtility: [10, 5] }, { name: 'espresso', price: 3, marginalUtility: [7, 4, 1] }],
+    question: 'Ana has €10 for an afternoon treat. Which affordable bundle gives her the most total utility?',
+    options: [{ id: 'balanced', amounts: [1, 2] }, { id: 'gelato', amounts: [2, 0] }, { id: 'coffee', amounts: [0, 3] }]
+  },
+  {
+    id: 'enzo', name: 'ENZO', role: 'Local guide', shirt: '#b76b56', from: [610, 465], to: [730, 465], period: 5.8,
+    budget: 9, goods: [{ name: 'focaccia', price: 5, marginalUtility: [13] }, { name: 'lemonade', price: 2, marginalUtility: [7, 4, 2, 1] }],
+    question: 'Enzo has €9 for lunch. Which affordable bundle gives him the most total utility?',
+    options: [{ id: 'balanced', amounts: [1, 2] }, { id: 'snack', amounts: [1, 1] }, { id: 'drinks', amounts: [0, 4] }]
+  }
+];
+
+export function streetChoice(person, amounts) {
+  const cost = person.goods.reduce((sum, good, i) => sum + good.price * amounts[i], 0);
+  const utility = person.goods.reduce((sum, good, i) => sum + good.marginalUtility.slice(0, amounts[i]).reduce((a, b) => a + b, 0), 0);
+  return { cost, utility, affordable: cost <= person.budget };
+}
+
+export function bestStreetChoice(person) {
+  const [first, second] = person.goods;
+  const possibilities = [];
+  for (let a = 0; a <= first.marginalUtility.length; a++) for (let b = 0; b <= second.marginalUtility.length; b++) {
+    const amounts = [a, b], result = streetChoice(person, amounts);
+    if (result.affordable) possibilities.push({ amounts, ...result });
+  }
+  return possibilities.reduce((best, current) => current.utility > best.utility ? current : best);
+}
 const ART_HITBOXES = [
   { id: 'hotel', x: 60, y: 32, w: 405, h: 215 },
   { id: 'bakery', x: 48, y: 298, w: 244, h: 165 },
@@ -17,13 +47,15 @@ const ART_HITBOXES = [
 const TREES = [[27, 214], [271, 207], [615, 214], [864, 217], [29, 390], [866, 390], [333, 330], [565, 330], [55, 463], [850, 465], [362, 440], [536, 440]];
 
 export class Town {
-  constructor(canvas, player, onVisit, onMove, onLocked) {
+  constructor(canvas, player, onVisit, onMove, onLocked, onStreet) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.player = player;
     this.onVisit = onVisit;
     this.onMove = onMove;
     this.onLocked = onLocked;
+    this.onStreet = onStreet;
+    this.elapsed = 0;
     this.keys = new Set();
     this.path = [];
     this.paused = false;
@@ -60,8 +92,14 @@ export class Town {
     this.canvas.removeEventListener('pointerdown', this.click);
   }
   setControl(key, down) { if (down && !this.paused) this.keys.add(key); else if (!down) { this.keys.delete(key); this.onMove(this.player, true); } }
-  nearest() { return PEOPLE.find(p => Math.hypot(this.player.x - p.x, this.player.y - p.y) < 54); }
-  interact() { if (this.paused) return; const person = this.nearest(); if (person) this.onVisit(person.id); }
+  streetPositions() {
+    return STREET_PEOPLE.map(person => {
+      const t = this.reduced ? .5 : (1 + Math.sin(this.elapsed * Math.PI * 2 / person.period)) / 2;
+      return { ...person, x: person.from[0] + (person.to[0] - person.from[0]) * t, y: person.from[1] + (person.to[1] - person.from[1]) * t, street: true };
+    });
+  }
+  nearest() { return [...PEOPLE, ...this.streetPositions()].find(p => Math.hypot(this.player.x - p.x, this.player.y - p.y) < 54); }
+  interact() { if (this.paused) return; const person = this.nearest(); if (person) { if (person.street) this.onStreet(person.id); else this.onVisit(person.id); } }
   pointer(e) {
     if (this.paused) return;
     const rect = this.canvas.getBoundingClientRect();
@@ -71,6 +109,8 @@ export class Town {
     const offsetY = cover ? (rect.height - HEIGHT * scale) / 2 : 0;
     const x = (e.clientX - rect.left - offsetX) / scale;
     const y = (e.clientY - rect.top - offsetY) / scale;
+    const street = this.streetPositions().find(p => Math.hypot(x - p.x, y - p.y) < 42);
+    if (street) { this.onStreet(street.id); return; }
     const person = PEOPLE.find(p => Math.hypot(x - p.x, y - p.y) < 38);
     if (person) { this.onVisit(person.id); return; }
     const hitboxes = this.background.complete && this.background.naturalWidth ? ART_HITBOXES : BUILDINGS;
@@ -108,6 +148,7 @@ export class Town {
     if (!this.running) return;
     const dt = Math.min((time - this.last) / 1000, .04); this.last = time;
     if (this.paused) { this.draw(); this.raf = requestAnimationFrame(this.loop); return; }
+    this.elapsed += dt;
     const left = this.keys.has('a') || this.keys.has('arrowleft');
     const right = this.keys.has('d') || this.keys.has('arrowright');
     const up = this.keys.has('w') || this.keys.has('arrowup');
@@ -147,6 +188,7 @@ export class Town {
         label(topic, x, y + 14, 9, '#f3dbac');
       }
       for (const p of PEOPLE) this.person(c, p.x, p.y, p.shirt, p.name, false, p.id);
+      for (const p of this.streetPositions()) this.person(c, p.x, p.y, p.shirt, p.name, false, 'street');
       this.person(c, this.player.x, this.player.y, this.player.color, 'YOU', true);
       const nearby = this.nearest();
       if (nearby) { rect(nearby.x - 28, nearby.y - 68, 56, 20, '#214750'); label('E · TALK', nearby.x, nearby.y - 54, 10, '#fff4d0'); }
@@ -183,6 +225,7 @@ export class Town {
     for (const [x, y] of TREES) this.tree(c, x, y);
     for (const b of BUILDINGS) this.building(c, b);
     for (const p of PEOPLE) this.person(c, p.x, p.y, p.shirt, p.name, false, p.id);
+    for (const p of this.streetPositions()) this.person(c, p.x, p.y, p.shirt, p.name, false, 'street');
     this.person(c, this.player.x, this.player.y, this.player.color, 'YOU', true);
     const nearby = this.nearest();
     if (nearby) { rect(nearby.x - 28, nearby.y - 68, 56, 20, '#214750'); label('E · TALK', nearby.x, nearby.y - 54, 10, '#fff4d0'); }
@@ -264,9 +307,12 @@ export class Town {
       c.fillStyle = '#413b46'; c.fillRect(x - 11, y - 27, 4, 15); c.fillRect(x + 7, y - 27, 4, 15);
       c.fillStyle = '#d3af65'; c.fillRect(x - 14, y - 35, 28, 5); c.fillRect(x - 8, y - 42, 16, 8);
       c.fillStyle = '#718b61'; c.fillRect(x - 8, y - 35, 16, 2); c.fillRect(x - 5, y - 10, 10, 3);
+    } else if (look === 'street') {
+      c.fillStyle = '#f7d8a6'; c.fillRect(x - 11, y - 35, 22, 5);
+      c.fillStyle = '#526f79'; c.fillRect(x - 8, y - 10, 16, 4);
     }
     c.fillStyle = '#24464f'; c.fillRect(x - 17, y - 52, Math.max(34, name.length * 8 + 10), 15);
     c.textAlign = 'center'; c.fillStyle = '#fff3d4'; c.font = 'bold 10px monospace'; c.fillText(name, x, y - 41);
-    if (!player) { c.fillStyle = '#ffce65'; c.fillRect(x - 7, y - 70, 14, 14); c.fillStyle = '#36505a'; c.fillText('!', x, y - 59); }
+    if (!player) { c.fillStyle = '#ffce65'; c.fillRect(x - 7, y - 70, 14, 14); c.fillStyle = '#36505a'; c.fillText(look === 'street' ? '?' : '!', x, y - 59); }
   }
 }
