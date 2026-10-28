@@ -337,7 +337,7 @@ function hotelTask() {
     body += `<h2>Propose inverse demand</h2><p>With the two uncensored examples, propose <b>P(Q) = a + bQ</b>. You have not been shown Lucia’s equation. Decide what slope and intercept fit the evidence.</p><div class="notice">A: (Q = 69, P = €170) &nbsp; B: (Q = 54, P = €190)<br>Same classroom conditions; neither example reaches 80 rooms.</div>
     <form data-form="hotel-model"><div class="field-grid"><label class="field">Intercept a<input name="intercept" type="number" step="any" required placeholder="€"></label><label class="field">Slope b<input name="slope" type="number" step="any" required placeholder="€/room"></label></div><button class="button">Check proposed function</button></form>`;
   } else if (!h.mr && !h.decision) {
-    body += `<h2>Turn demand into marginal revenue</h2><p>You found <b>P(Q) = ${fmt(h.model.intercept)} ${h.model.slope < 0 ? '−' : '+'} ${fmt(Math.abs(h.model.slope))}Q</b>. For uncapped demand, multiply price by Q to get total revenue, then double the Q coefficient to find MR.</p><div class="notice"><code>TR(Q) = aQ + bQ²</code><br><code>MR(Q) = a + 2bQ</code><br>Here a = ${fmt(h.model.intercept)} and b = ${fmt(h.model.slope)}.</div><form data-form="hotel-mr"><label class="field">What is the Q coefficient in MR(Q) = ${fmt(h.model.intercept)} + cQ?<input name="slope" type="number" step="any" required placeholder="Calculate c = 2 × b"></label><button class="button">Check marginal revenue</button></form>`;
+    body += `<h2>Find total and marginal revenue</h2><p>You found <b>P(Q) = ${fmt(h.model.intercept)} ${h.model.slope < 0 ? '−' : '+'} ${fmt(Math.abs(h.model.slope))}Q</b>. Multiply price by Q to find total revenue, then use its Q² coefficient to find marginal revenue. Work with requested rooms before applying the 80-room sales cap.</p><div class="notice"><code>TR(Q) = aQ + dQ²</code><br><code>MR(Q) = a + cQ</code><br>Here a = ${fmt(h.model.intercept)} and the demand slope is ${fmt(h.model.slope)}.</div><form data-form="hotel-mr"><div class="field-grid"><label class="field">Q² coefficient d in TR(Q) = ${fmt(h.model.intercept)}Q + dQ²<input name="trSlope" type="number" step="any" required placeholder="Multiply P(Q) by Q"></label><label class="field">Q coefficient c in MR(Q) = ${fmt(h.model.intercept)} + cQ<input name="slope" type="number" step="any" required placeholder="Find c from TR(Q)"></label></div><button class="button">Check TR and MR</button></form>`;
   } else if (!h.decision) {
     body += `<h2>Choose a room rate</h2><p>Set a price, predict room requests and room revenue, then see the result. The hotel has ${SCENARIO.hotel.rooms} rooms; revenue is not profit.</p><details class="prior-tests"><summary>Review the demand chart${h.tests.length ? ' and earlier tests' : ''}</summary>${hotelChart()}${hotelTests()}</details>${hotelPriceForm(h)}`;
   } else {
@@ -362,8 +362,8 @@ function bakeryTask() {
   if (!ready) {
     body += `<h2>Find the production facts</h2><p>Ask Marta about the hotel order and costs. Ask Paolo how many rolls one, two, and three bakers produce using the same oven.</p><div class="step-list">${[['order','Hotel order'],['one','One baker'],['two','Two bakers'],['three','Three bakers'],['cost','Labour and ingredient cost']].map(([id,label]) => `<div class="step ${asked('bakery',id)?'done':''}"><b>${asked('bakery',id)?'✓':'•'}</b><span>${label}</span></div>`).join('')}</div>`;
   } else {
-    body += `<h2>${tested.size < 3 ? 'Calculate a production plan' : 'Choose a plan you can defend'}</h2><p>Use Marta’s costs and Paolo’s output figures to calculate extra output, order cost, and guests served. Test all three plans before choosing.</p><div class="step-list">${SCENARIO.breakfast.plans.map(plan => `<div class="step ${tested.has(plan.bakers) ? 'done' : ''}"><b>${tested.has(plan.bakers) ? '✓' : '•'}</b><span>${plan.bakers} baker${plan.bakers > 1 ? 's' : ''} ${tested.has(plan.bakers) ? 'tested' : 'to test'}</span></div>`).join('')}</div>
-    <form data-form="bakery-test"><label class="field">Bakers scheduled<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${nextBakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><div class="field-grid"><label class="field">Predicted rolls produced<input name="predictedRolls" type="number" min="0" step="any" required placeholder="From Marta’s answer"></label><label class="field">Extra rolls from this baker<input name="predictedExtra" type="number" min="0" step="any" required placeholder="Difference from prior plan"></label><label class="field">Predicted order cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Labour + ingredients"></label><label class="field">Predicted guests served<input name="prediction" type="number" min="0" max="60" step="any" required placeholder="At most 60"></label></div><button class="button">Test this production plan</button></form>`;
+    body += `<h2>${tested.size < 3 ? 'Calculate a production plan' : 'Choose a plan you can defend'}</h2><p>Use the figures you gathered to calculate extra output, order cost, and guests served. Test all three plans before choosing.</p><div class="scroll-table"><table class="observation-table"><tr><th>Bakers</th><th>Rolls from one oven</th></tr>${SCENARIO.breakfast.plans.map(plan => `<tr><td>${plan.bakers}</td><td>${plan.rolls}</td></tr>`).join('')}</table></div><p class="muted">Hotel order: ${SCENARIO.breakfast.guests} rolls · Labour: €20 per baker · Ingredients: €0.60 per roll produced</p><div class="step-list">${SCENARIO.breakfast.plans.map(plan => `<div class="step ${tested.has(plan.bakers) ? 'done' : ''}"><b>${tested.has(plan.bakers) ? '✓' : '•'}</b><span>${plan.bakers} baker${plan.bakers > 1 ? 's' : ''} ${tested.has(plan.bakers) ? 'tested' : 'to test'}</span></div>`).join('')}</div>
+    <form data-form="bakery-test"><label class="field">Bakers scheduled<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${nextBakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><div class="field-grid"><label class="field">Extra rolls from this baker<input name="predictedExtra" type="number" min="0" step="any" required placeholder="Difference from prior plan"></label><label class="field">Predicted order cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Labour + ingredients"></label><label class="field">Predicted guests served<input name="prediction" type="number" min="0" max="60" step="any" required placeholder="At most 60"></label></div><button class="button">Test this production plan</button></form>`;
     if (b.runs.length) body += `<details class="prior-tests"><summary>Review tested plans (${tested.size}/3 verified)</summary><div class="scroll-table"><table class="data-table"><tr><th>Bakers</th><th>Your extra</th><th>Actual extra</th><th>Served</th><th>Order cost</th><th>Status</th></tr>${b.runs.map(r => `<tr><td>${r.bakers}</td><td>${fmt(r.predictions?.extraOutput)}</td><td>${r.extraOutput ?? r.rolls - (SCENARIO.breakfast.plans[r.bakers - 2]?.rolls ?? 0)}</td><td>${r.served}</td><td>${eur(r.orderCost)}</td><td>${r.verified === false ? 'Re-test' : 'Checked'}</td></tr>`).join('')}</table></div></details>`;
     if (tested.size === 3) body += `<hr class="section-rule"><h3>Final breakfast order</h3><p>Which plan best balances service with cost? You can still test another option first.</p><form data-form="bakery-decide"><label class="field">Choose number of bakers<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${b.decision?.bakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><label class="field">Explain your decision<textarea name="reason" required placeholder="Compare extra output, guests served, costs, and the fixed oven...">${esc(b.decision?.reason || '')}</textarea></label><button class="button">${b.decision ? 'Update order' : 'Commit breakfast order'}</button></form>`;
     if (b.decision) body += `<div class="notice"><b>Current order:</b> ${b.decision.bakers} bakers serve ${b.decision.served}/60 guests. Contribution from this breakfast contract is ${eur(b.decision.contribution)}, not total hotel profit.</div>${reflectionForm('bakery', b.decision.reflection)}`;
@@ -471,13 +471,15 @@ function handleForm(form) {
       return feedback('hotel', 'Good: the two examples fit P(Q) = 262 − (4/3)Q. Next, find marginal revenue.');
     }
     case 'hotel-mr': {
-      const slope = Number(values.slope);
+      const trSlope = Number(values.trSlope), slope = Number(values.slope);
+      const expectedTR = SCENARIO.hotel.demand.slope;
       const expected = 2 * SCENARIO.hotel.demand.slope;
-      record('mr_proposal', 'hotel', `MR Q coefficient: ${fmt(slope)}`, { slope });
+      record('mr_proposal', 'hotel', `TR Q² coefficient: ${fmt(trSlope)}; MR Q coefficient: ${fmt(slope)}`, { trSlope, slope });
+      if (!Number.isFinite(trSlope) || Math.abs(trSlope - expectedTR) > .08) return feedback('hotel', 'For TR, multiply every term in P(Q) by Q. The Q² coefficient keeps the negative sign of the demand slope.');
       if (!Number.isFinite(slope) || Math.abs(slope - expected) > .08) return feedback('hotel', 'MR has the same intercept as demand, but its Q coefficient is twice the demand slope. Keep the negative sign.');
-      state.hotel.mr = { intercept: SCENARIO.hotel.demand.intercept, slope, at: new Date().toISOString() };
-      record('milestone', 'hotel', `Marginal revenue function checked: MR(Q) = ${fmt(state.hotel.mr.intercept)} + (${fmt(slope)})Q`, state.hotel.mr);
-      return feedback('hotel', `Good: your marginal revenue function is ready. Now use demand and the ${SCENARIO.hotel.rooms}-room capacity to set a rate.`);
+      state.hotel.mr = { intercept: SCENARIO.hotel.demand.intercept, trSlope, slope, at: new Date().toISOString() };
+      record('milestone', 'hotel', `TR(Q) = ${fmt(state.hotel.mr.intercept)}Q + (${fmt(trSlope)})Q²; MR(Q) = ${fmt(state.hotel.mr.intercept)} + (${fmt(slope)})Q`, state.hotel.mr);
+      return feedback('hotel', `Good: your TR and MR functions are ready. Now use demand and the ${SCENARIO.hotel.rooms}-room capacity to set a rate.`);
     }
     case 'hotel-test': {
       const price = Number(values.price), prediction = Number(values.prediction), outcome = hotelAtPrice(price);
@@ -518,6 +520,10 @@ function handleForm(form) {
         ['requested rooms', predictions.requested, result.requested, 1],
         ['room revenue', predictions.revenue, result.revenue, 15]
       ].filter(([, predicted, actual, tolerance]) => Math.abs(predicted - actual) > tolerance).map(([label]) => label);
+      if (differences.length) {
+        record('room_rate_check', 'hotel', `${eur(price)}: recheck ${differences.join(' and ')}.`, { price, predictions });
+        return feedback('hotel', `Recheck your ${differences.join(' and ')} before saving this rate. Use Qd(P) for requests; sales stop at 80 rooms, and room revenue is price × rooms sold.`);
+      }
       state.hotel.decision = { ...result, marginalRevenue, predictions, reason, message, at: new Date().toISOString() };
       record('decision', 'hotel', `${eur(price)} per room; predicted ${fmt(predictions.requested)} requested and ${eur(predictions.revenue)} revenue; model ${fmt(result.sold)} sold and ${eur(result.revenue)} room revenue. ${reason}`, state.hotel.decision);
       if (state.winery.choice) {
@@ -527,7 +533,7 @@ function handleForm(form) {
           record('linked_forecast_revision', 'winery', `Room forecast changed the wine requirement to ${revised.bottles} bottles. Recalculate the order.`, revised);
         }
       }
-      return feedback('hotel', `Saved: ${differences.length ? `Recheck your ${differences.join(', ')} against the revealed result. ` : 'Your predictions were close. '}${message}`);
+      return feedback('hotel', `Saved: your predictions were close. ${message}`);
     }
     case 'hotel-elasticity': {
       const example = hotelAtPrice(SCENARIO.hotel.referencePrice);
@@ -549,13 +555,13 @@ function handleForm(form) {
       if (!plan) return;
       const previousRolls = SCENARIO.breakfast.plans.find(p => p.bakers === bakers - 1)?.rolls ?? 0;
       const extraOutput = plan.rolls - previousRolls;
-      const predictions = { rolls: Number(values.predictedRolls), extraOutput: Number(values.predictedExtra), orderCost: Number(values.predictedCost), served: prediction };
+      const predictions = { extraOutput: Number(values.predictedExtra), orderCost: Number(values.predictedCost), served: prediction };
       if (Object.values(predictions).some(value => !Number.isFinite(value))) return feedback('bakery', 'Enter a valid number for each calculation.');
       const outcome = bakeryOutcome(plan);
-      const errors = [['rolls produced', predictions.rolls, outcome.rolls], ['extra output', predictions.extraOutput, extraOutput], ['order cost', predictions.orderCost, outcome.orderCost], ['guests served', predictions.served, outcome.served]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .1).map(([label]) => label);
+      const errors = [['extra output', predictions.extraOutput, extraOutput], ['order cost', predictions.orderCost, outcome.orderCost], ['guests served', predictions.served, outcome.served]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .1).map(([label]) => label);
       const result = { ...outcome, extraOutput, predictions, prediction, verified: errors.length === 0, at: new Date().toISOString() };
       state.breakfast.runs.push(result);
-      record('prediction_test', 'bakery', `${bakers} bakers: predicted ${fmt(predictions.rolls)} rolls, ${fmt(predictions.extraOutput)} extra, ${eur(predictions.orderCost)} cost, ${fmt(prediction)} served; model ${result.rolls} rolls, ${extraOutput} extra, ${eur(result.orderCost)} cost, ${result.served} served.`, result);
+      record('prediction_test', 'bakery', `${bakers} bakers: predicted ${fmt(predictions.extraOutput)} extra rolls, ${eur(predictions.orderCost)} cost, ${fmt(prediction)} served; model ${result.rolls} rolls, ${extraOutput} extra, ${eur(result.orderCost)} cost, ${result.served} served.`, result);
       return feedback('bakery', `${errors.length ? 'Check' : 'Good test'}: ${bakers} baker${bakers > 1 ? 's' : ''} produce ${result.rolls} rolls; the added baker contributes ${extraOutput}. Cost is ${eur(result.orderCost)} and ${result.served} guests are served. ${errors.length ? `Recheck your ${errors.join(', ')} and re-test this plan before deciding.` : 'Your calculations were close.'}`);
     }
     case 'bakery-decide': {
