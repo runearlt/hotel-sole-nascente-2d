@@ -207,17 +207,17 @@ kbd { border: 1px solid #9db3ad; border-radius: 3px; padding: 1px 5px; font-weig
   .street-goods { gap: 5px; }.street-goods > div { padding: 5px; }
   .street-options button { display: grid; gap: 2px; padding: 5px 7px; font-size: 10px; }.street-options small { font-size: 9px; }
   .scene-speech { grid-template-columns: 40px 1fr; gap: 8px; padding: 6px 8px; }
-  .scene-speech p { font-size: 11px; line-height: 1.32; }.scene-avatar { width: 38px; height: 42px; }
+  .scene-speech p { font-size: 13px; line-height: 1.4; }.scene-avatar { width: 38px; height: 42px; }
   .scene-avatar::before { left: 6px; width: 25px; }.scene-avatar::after { width: 33px; }.scene-avatar span { left: 9px; top: 20px; box-shadow: 13px 0 #203039, 6px 9px #b16d5c; }
   .scene-questions { padding: 5px 8px 2px; }.scene-caption { margin-bottom: 3px; }
-  .scene-question { padding: 4px 5px; font-size: 10px; }.scene-question b { width: 18px; height: 18px; font-size: 10px; }
-  .scene-dialogue-foot { padding: 6px 8px; }.scene-primary, .scene-secondary { padding: 6px; font-size: 9px; }
+  .scene-question { padding: 6px 5px; font-size: 12px; }.scene-question b { width: 20px; height: 20px; font-size: 11px; }
+  .scene-dialogue-foot { padding: 6px 8px; }.scene-primary, .scene-secondary { padding: 6px; font-size: 11px; }
   .mini-workspace { top: 2%; left: 2%; width: 96%; height: 96%; box-shadow: 3px 3px 0 #0e1b1f99; }
-  .mini-head { min-height: 38px; padding: 4px 7px; }.mini-head small { font-size: 8px; }.mini-head strong { font-size: 12px; }
+  .mini-head { min-height: 38px; padding: 4px 7px; }.mini-head small { font-size: 10px; }.mini-head strong { font-size: 14px; }
   .mini-columns { display: block; overflow-y: auto; }.mini-evidence, .mini-task { overflow: visible; padding: 9px 10px; }
   .mini-evidence { border-right: 0; border-bottom: 2px solid #24383c; }.mini-evidence .mini-note { display: none; }
   .mini-evidence .scene-secondary { display: inline-block; width: auto; margin: 2px 4px 0 0; }
-  .mini-task h2 { font-size: 16px; }.mini-task p { font-size: 11px; }
+  .mini-task h2 { font-size: 17px; }.mini-task p, .mini-task .field, .mini-task .notice, .mini-task .hint-box { font-size: 13px; }
 }
 
 /* The town is the first screen; supporting numbers stay one disclosure away. */
@@ -383,7 +383,7 @@ main:has(.game-shell) { max-width: 1050px; padding-top: 20px; }
   .mini-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 6px 8px; }
   .mini-tool-links { grid-column: 1 / -1; margin: 0; }
   .mini-evidence, .formula-tool, .scratchpad { min-width: 0; padding: 0; border: 0; }
-  .mini-evidence summary, .scratchpad summary, .formula-tool > button { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 31px; padding: 4px; border: 1px solid #719389; background: #f7faf4; font-size: 10px; text-align: center; }
+  .mini-evidence summary, .scratchpad summary, .formula-tool > button { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 31px; padding: 4px; border: 1px solid #719389; background: #f7faf4; font-size: 11px; text-align: center; }
   .mini-evidence summary small, .scratchpad summary small, .formula-tool > button span { display: none; }
   .mini-evidence[open], .scratchpad[open], .formula-tool:has(.formula-content:not([hidden])) { grid-column: 1 / -1; }
   .mini-evidence[open] > div, .scratchpad[open] .scratch-body, .formula-content:not([hidden]) { padding: 5px 2px; }
