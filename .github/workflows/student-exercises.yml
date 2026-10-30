@@ -1,0 +1,47 @@
+name: Student exercise checks
+
+on:
+  pull_request:
+    branches: [development, main]
+  push:
+    branches: [development, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  student-experience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Check economics and movement rules
+        run: npm test
+      - name: Play the student exercises
+        run: |
+          python3 -m http.server 8174 --directory public &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:8174/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8174/ >/dev/null
+          npm run test:student
+          npm run test:simulation
+      - name: Keep screenshots when a journey fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: student-journey-failure
+          path: test-artifacts/
+          if-no-files-found: ignore

@@ -27,7 +27,12 @@ const profiles = Array.from({ length: COUNT }, (_, index) => {
   };
 });
 
-const browser = await chromium.launch({ headless: true, executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHROME_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH }
+    : process.platform === 'darwin' ? { executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' } : {})
+});
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
 const results = [];
 try {
