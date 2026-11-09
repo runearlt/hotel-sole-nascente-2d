@@ -30,17 +30,17 @@ async function runJourney(width, height, mode = 'guided') {
   page.on('pageerror', error => errors.push(error.message));
   const click = selector => page.locator(selector).first().click();
   const freeQuestions = {
-    price: 'What is the current room price?', bookings: 'How many room bookings do you have?',
+    price: 'How many rooms does the original hotel have and what units does the case use?', bookings: 'How does occupancy change by season?',
     order: 'What does the hotel need for breakfast?', cost: 'What are the labour and ingredient costs?',
     one: 'What does one baker produce?', two: 'What do two bakers produce?', three: 'What do three bakers produce?',
-    other: 'What happened at the second price?', comparable: 'Were those observations comparable?',
+    other: 'What are the demand curves for groups A, B and C?', comparable: 'Who are the guest groups?',
     full: 'What is the room capacity?', costs: 'Are hotel operating costs available?',
     options: 'What are the wine options and prices?', taste: 'What did the tasting panel score?',
     stock: 'What is the estate reserve stock limit?', forecast: 'What is the dinner forecast?'
   };
   const ask = async (...ids) => { for (const id of ids) {
     if (mode === 'guided') await click(`.scene-dialogue [data-question="${id}"]`);
-    else { await page.locator('#free-question-input').fill(freeQuestions[id]); await click('.free-question button[type="submit"]'); }
+    else { const before = await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).log.filter(row => row.kind === 'question').length); await page.locator('#free-question-input').fill(freeQuestions[id]); await click('.free-question button[type="submit"]'); await page.waitForFunction(count => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).log.filter(row => row.kind === 'question').length > count, before); }
   } };
   const closeTalk = () => click('.scene-dialogue [data-action="close-overlay"]');
   const town = async () => { await click('.mini-head [data-action="close-overlay"]'); await click('.interior-actions [data-view="town"]'); };
@@ -60,9 +60,11 @@ async function runJourney(width, height, mode = 'guided') {
       assert.equal(await page.locator('.scene-question').count(), 0, 'free mode must hide prepared questions');
       await page.locator('#free-question-input').fill('What is the optimal room price?');
       await click('.free-question button[type="submit"]');
-      assert.match(await page.locator('.scene-speech').innerText(), /you must work out the rate/i);
+      await page.locator('.scene-speech').getByText(/calculations and advice are yours/i).waitFor();
+      assert.match(await page.locator('.scene-speech').innerText(), /calculations and advice are yours/i);
       await page.locator('#free-question-input').fill('What can one baker produce?');
       await click('.free-question button[type="submit"]');
+      await page.locator('.scene-speech').getByText(/Paolo/).waitFor();
       assert.match(await page.locator('.scene-speech').innerText(), /Paolo/);
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).interviews.hotel), []);
     }
@@ -92,12 +94,9 @@ async function runJourney(width, height, mode = 'guided') {
     await click('.interior-actions [data-person="elena"]');
     await ask('full', 'costs');
     await click('.scene-dialogue [data-action="workspace"]');
-    await fill(page.locator('[data-form="hotel-model"]'), { intercept: 262, slope: -4 / 3 });
-    await fill(page.locator('[data-form="hotel-mr"]'), { trSlope: -4 / 3, slope: -8 / 3 });
-    await fill(page.locator('[data-form="hotel-decide"]'), { price: 170, predictedRequested: 69, predictedRevenue: 11730, profitClaim: 'no', reason });
-    await fill(page.locator('[data-form="hotel-reflect"]'), { reflection });
-    await fill(page.locator('[data-form="hotel-elasticity"]'), { value: -.75 * 170 / 69, direction: 'fewer', revenueDirection: 'fall' });
-    await fill(page.locator('[data-form="hotel-elasticity-reflect"]'), { reflection });
+    await fill(page.locator('[data-form="case-hotel-mr"]'), { tr: -0.05, mr: -0.1 });
+    await fill(page.locator('[data-form="case-hotel-elasticity"]'), { A: -1.4, B: -2, C: -3.5, least: 'A' });
+    await fill(page.locator('[data-form="case-hotel-advice"]'), { offerA: 'substitute', offerB: 'complement', reflection });
     await town();
 
     await click('.game-go');
@@ -109,12 +108,13 @@ async function runJourney(width, height, mode = 'guided') {
     await click('.scene-dialogue [data-action="workspace"]');
     const wine = page.locator('[data-form="winery-decide"]');
     await wine.locator('[name="choice"][value="house"]').check();
-    await fill(wine, { predictedEstate: 0, predictedHouse: 89, predictedCost: 712, reason });
+    await fill(wine, { predictedEstate: 0, predictedHouse: 80, predictedCost: 640, reason });
     await fill(page.locator('[data-form="winery-reflect"]'), { reflection });
     const state = await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')));
     assert.ok(state.breakfast.decision?.reflection, 'breakfast reflection missing');
-    assert.ok(state.hotel.mr?.trSlope, 'TR/MR step missing');
-    assert.ok(state.hotel.elasticity?.reflection, 'elasticity advice missing');
+    assert.ok(state.caseHotel.mr, 'TR/MR step missing');
+    assert.ok(state.caseHotel.elasticity, 'elasticity comparison missing');
+    assert.ok(state.caseHotel.interpretation, 'case advice missing');
     assert.ok(state.winery.reflection, 'wine reflection missing');
     assert.deepEqual(errors, [], 'browser reported page errors');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px workspace overflows`);

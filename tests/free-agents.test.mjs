@@ -14,8 +14,8 @@ test('case facts count as interview evidence without giving a solution', () => {
   const booking = answerFreeQuestion('lucia', 'How many room bookings do you have?');
   assert.equal(price.factId, 'price');
   assert.equal(booking.factId, 'bookings');
-  assert.match(price.answer, /€170/);
-  assert.doesNotMatch(price.answer + booking.answer, /262|profit-maximizing|marginal revenue/i);
+  assert.match(price.answer, /78 rooms|DKK/);
+  assert.doesNotMatch(price.answer + booking.answer, /€170|262|profit-maximizing|marginal revenue/i);
 });
 
 test('solution requests, vague questions and wrong-role questions earn no fact credit', () => {
@@ -31,8 +31,8 @@ test('solution requests, vague questions and wrong-role questions earn no fact c
 
 test('student can retrieve required facts from each responsible person', () => {
   const cases = [
-    ['marco', 'What happened at the second price?', 'other'],
-    ['marco', 'Were those observations comparable?', 'comparable'],
+    ['marco', 'What are the demand curves for groups A, B and C?', 'other'],
+    ['marco', 'Who are the guest groups?', 'comparable'],
     ['elena', 'What is the room capacity?', 'full'],
     ['elena', 'Are hotel operating costs available?', 'costs'],
     ['marta', 'What does the hotel need for breakfast?', 'order'],
@@ -50,8 +50,8 @@ test('student can retrieve required facts from each responsible person', () => {
 
 test('common paraphrases still retrieve the intended observations', () => {
   assert.equal(answerFreeQuestion('lucia', 'How much does a room cost per night?').factId, 'price');
-  assert.equal(answerFreeQuestion('lucia', 'What was demand at the current rate?').factId, 'bookings');
-  assert.equal(answerFreeQuestion('marco', 'Did you try another rate for the rooms?').factId, 'other');
+  assert.equal(answerFreeQuestion('lucia', 'How does occupancy change by season?').factId, 'bookings');
+  assert.equal(answerFreeQuestion('marco', 'What is the estimated demand function?').factId, 'other');
   assert.equal(answerFreeQuestion('marta', 'How many rolls does the hotel need?').factId, 'order');
 });
 

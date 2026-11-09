@@ -16,13 +16,12 @@ const profiles = Array.from({ length: COUNT }, (_, index) => {
   const chance = ability === 'novice' ? 0.7 : ability === 'typical' ? 0.32 : 0.08;
   return {
     id: index + 1, ability,
-    modelError: rng() < chance, trError: trRng() < chance, mrError: rng() < chance,
-    bakeryError: rng() < chance, priceError: rng() < chance,
+    trError: trRng() < chance, mrError: rng() < chance,
+    bakeryError: rng() < chance,
     elasticityError: rng() < chance, wineError: rng() < chance,
-    profitError: rng() < chance / 2,
+    interpretationError: rng() < chance / 2,
     usesHints: rng() < (ability === 'novice' ? .8 : ability === 'typical' ? .35 : .1),
     doesStreet: rng() < .25,
-    price: [150, 170, 185][Math.floor(rng() * 3)],
     wine: rng() < .5 ? 'house' : 'mixed'
   };
 });
@@ -40,6 +39,7 @@ try {
     await page.goto(URL, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.removeItem('sole-bay-simulation-v1'));
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('[data-mode="guided"]').waitFor();
     const result = await page.evaluate(profile => {
       const KEY = 'sole-bay-simulation-v1';
       const counts = { questions: 0, formAttempts: 0, hints: 0, navigation: 0, retries: 0 };
@@ -75,8 +75,9 @@ try {
       const leave = () => { click('[data-action="close-overlay"]'); click('[data-view="town"]'); };
       const reason = 'I compared the available evidence, capacity and costs, while keeping uncertain profit effects separate.';
       const reflection = 'I would check the result against my prediction and revise the decision if the evidence or constraints changed.';
-      const flags = { wrongModelAccepted: false, wrongTRAccepted: false, wrongMRAccepted: false, wrongHotelPredictionAccepted: false, wrongBakeryPlanAccepted: false, wrongWineCostAccepted: false };
+      const flags = { wrongTRAccepted: false, wrongMRAccepted: false, wrongElasticityAccepted: false, wrongBakeryPlanAccepted: false, wrongWineCostAccepted: false };
 
+      click('[data-mode="guided"]');
       click('[data-visit="hotel"]');
       click('[data-person="lucia"]');
       for (const id of ['price', 'bookings']) click(`[data-question="${id}"]`);
@@ -107,34 +108,21 @@ try {
       talk('elena', ['full', 'costs']);
       click('[data-action="workspace"]');
       if (profile.usesHints) click('[data-action="hint"]');
-      if (profile.modelError) { submit('hotel-model', { intercept: 262, slope: 1.33 }); counts.retries++; flags.wrongModelAccepted = !!read().hotel.model; }
-      submit('hotel-model', { intercept: 262, slope: -4 / 3 });
-      if (profile.trError) { submit('hotel-mr', { trSlope: 4 / 3, slope: -8 / 3 }); counts.retries++; flags.wrongTRAccepted = !!read().hotel.mr; }
-      if (profile.mrError) { submit('hotel-mr', { trSlope: -4 / 3, slope: 8 / 3 }); counts.retries++; flags.wrongMRAccepted = !!read().hotel.mr; }
-      submit('hotel-mr', { trSlope: -4 / 3, slope: -8 / 3 });
-
-      const requested = (profile.price - 262) / (-4 / 3);
-      const sold = Math.min(requested, 80);
-      const revenue = profile.price * sold;
-      if (profile.profitError) {
-        submit('hotel-decide', { price: profile.price, predictedRequested: requested, predictedRevenue: revenue, profitClaim: 'yes', reason });
-        counts.retries++;
-      }
-      if (profile.priceError) {
-        submit('hotel-decide', { price: profile.price, predictedRequested: requested + 5, predictedRevenue: revenue + 200, profitClaim: 'no', reason });
-        counts.retries++;
-        flags.wrongHotelPredictionAccepted = !!read().hotel.decision;
-      }
-      if (!read().hotel.decision) submit('hotel-decide', { price: profile.price, predictedRequested: requested, predictedRevenue: revenue, profitClaim: 'no', reason });
-      submit('hotel-reflect', { reflection });
+      if (profile.trError) { submit('case-hotel-mr', { tr: 0.05, mr: -0.1 }); counts.retries++; flags.wrongTRAccepted = !!read().caseHotel.mr; }
+      if (profile.mrError) { submit('case-hotel-mr', { tr: -0.05, mr: 0.1 }); counts.retries++; flags.wrongMRAccepted = !!read().caseHotel.mr; }
+      submit('case-hotel-mr', { tr: -0.05, mr: -0.1 });
       if (profile.usesHints) click('[data-action="hint"]');
-      const elasticity = -.75 * 170 / 69;
       if (profile.elasticityError) {
-        submit('hotel-elasticity', { value: -elasticity, direction: 'fewer', revenueDirection: 'fall' });
+        submit('case-hotel-elasticity', { A: 1.4, B: -2, C: -3.5, least: 'A' });
+        counts.retries++;
+        flags.wrongElasticityAccepted = !!read().caseHotel.elasticity;
+      }
+      submit('case-hotel-elasticity', { A: -1.4, B: -2, C: -3.5, least: 'A' });
+      if (profile.interpretationError) {
+        submit('case-hotel-advice', { offerA: 'complement', offerB: 'substitute', reflection });
         counts.retries++;
       }
-      submit('hotel-elasticity', { value: elasticity, direction: 'fewer', revenueDirection: 'fall' });
-      submit('hotel-elasticity-reflect', { reflection });
+      submit('case-hotel-advice', { offerA: 'substitute', offerB: 'complement', reflection });
       leave();
 
       click('[data-visit="winery"]');
@@ -143,7 +131,7 @@ try {
       talk('giulia', ['stock', 'forecast']);
       click('[data-action="workspace"]');
       if (profile.usesHints) click('[data-action="hint"]');
-      const bottles = Math.ceil(sold) + 20;
+      const bottles = 80;
       const estate = profile.wine === 'mixed' ? Math.min(60, bottles) : 0;
       const house = bottles - estate;
       const cost = 12 * estate + 8 * house;
@@ -161,10 +149,10 @@ try {
         click('[data-action="close-overlay"]');
       }
       const final = read();
-      const complete = !!final.breakfast.decision?.reflection && !!final.hotel.decision?.reflection && !!final.hotel.elasticity?.reflection && !!final.winery.reflection && !final.winery.needsReview;
+      const complete = !!final.breakfast.decision?.reflection && !!final.caseHotel.mr && !!final.caseHotel.elasticity && !!final.caseHotel.interpretation && !!final.winery.reflection && !final.winery.needsReview;
       // These task-time weights are assumptions for synthetic pacing, not measured student durations.
       const estimatedMinutes = 15.8 + counts.questions * .42 + counts.navigation * .22 + counts.formAttempts * .33 + counts.retries * .72 + counts.hints * .25 + (profile.doesStreet ? 1.8 : 0) + (profile.ability === 'novice' ? 3.3 : profile.ability === 'advanced' ? -2.8 : 0);
-      return { id: profile.id, ability: profile.ability, complete, estimatedMinutes: Math.round(estimatedMinutes * 10) / 10, counts, flags, milestones: { bakery: !!final.breakfast.decision, demand: !!final.hotel.model, mr: !!final.hotel.mr, roomRate: !!final.hotel.decision, elasticity: !!final.hotel.elasticity?.reflection, wine: !!final.winery.choice }, streetSolved: !!final.street.ana?.solved };
+      return { id: profile.id, ability: profile.ability, complete, estimatedMinutes: Math.round(estimatedMinutes * 10) / 10, counts, flags, milestones: { bakery: !!final.breakfast.decision, mr: !!final.caseHotel.mr, elasticity: !!final.caseHotel.elasticity, hotelAdvice: !!final.caseHotel.interpretation, wine: !!final.winery.choice }, streetSolved: !!final.street.ana?.solved };
     }, profile);
     results.push(result);
     if (profile.id % 25 === 0) process.stderr.write(`Simulated ${profile.id}/${COUNT} browser playthroughs\n`);
@@ -183,8 +171,7 @@ const summary = {
   typicalMedianEstimatedMinutes: median(results.filter(row => row.ability === 'typical').map(row => row.estimatedMinutes)),
   allMedianEstimatedMinutes: median(results.map(row => row.estimatedMinutes)),
   allP75EstimatedMinutes: [...results.map(row => row.estimatedMinutes)].sort((a, b) => a - b)[Math.floor(results.length * .75)],
-  wrongHotelPredictionsAccepted: results.filter(row => row.flags.wrongHotelPredictionAccepted).length,
-  wrongModelsAccepted: results.filter(row => row.flags.wrongModelAccepted).length,
+  wrongElasticitiesAccepted: results.filter(row => row.flags.wrongElasticityAccepted).length,
   wrongTRCoefficientsAccepted: results.filter(row => row.flags.wrongTRAccepted).length,
   wrongMRCoefficientsAccepted: results.filter(row => row.flags.wrongMRAccepted).length,
   wrongBakeryPlansAccepted: results.filter(row => row.flags.wrongBakeryPlanAccepted).length,
@@ -199,4 +186,4 @@ const summary = {
   failures: results.filter(row => !row.complete).map(row => row.id)
 };
 console.log(JSON.stringify(summary, null, 2));
-if (summary.completed !== COUNT || summary.wrongModelsAccepted || summary.wrongTRCoefficientsAccepted || summary.wrongMRCoefficientsAccepted || summary.wrongHotelPredictionsAccepted || summary.wrongBakeryPlansAccepted || summary.wrongWineCostsAccepted) process.exitCode = 1;
+if (summary.completed !== COUNT || summary.wrongTRCoefficientsAccepted || summary.wrongMRCoefficientsAccepted || summary.wrongElasticitiesAccepted || summary.wrongBakeryPlansAccepted || summary.wrongWineCostsAccepted) process.exitCode = 1;
