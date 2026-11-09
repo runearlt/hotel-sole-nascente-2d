@@ -2,13 +2,14 @@ import { SCENARIO, ACTORS } from './config.js';
 import { hotelAtPrice, revenueBestHotel, bakeryOutcome, wineOutcome, eur, round } from './economics.js';
 import { Town, STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
 import { BusinessInterior, ROOM_STAFF } from './interior.js';
+import { answerFreeQuestion } from './free-agents.js';
 
 const KEY = 'sole-bay-simulation-v1';
 const main = document.querySelector('#main');
 const ROOM_IDS = ['hotel', 'bakery', 'winery'];
 const emptyScratch = () => ({ left: '', operator: '+', right: '', notes: '' });
 const blank = () => ({
-  view: 'town', actor: null, overlay: null, mapVersion: 2, player: { x: 500, y: 250, color: '#477f9a' },
+  mode: null, view: 'town', actor: null, overlay: null, mapVersion: 2, player: { x: 500, y: 250, color: '#477f9a' },
   hotelPlayer: { x: 450, y: 456, color: '#477f9a' }, bakeryPlayer: { x: 450, y: 480, color: '#477f9a' }, wineryPlayer: { x: 450, y: 480, color: '#477f9a' },
   roomPeople: { hotel: 'lucia', bakery: 'marta', winery: 'sofia' }, notebookReturn: 'town', streetId: null, street: {},
   interviews: { hotel: [], bakery: [], winery: [] }, replies: {}, visits: [],
@@ -18,6 +19,7 @@ const blank = () => ({
 });
 let state, stored = null;
 try { stored = JSON.parse(localStorage.getItem(KEY) || 'null'); state = { ...blank(), ...stored }; } catch { state = blank(); }
+if (stored && !stored.mode) state.mode = 'guided';
 state.interviews ||= { hotel: [], bakery: [], winery: [] };
 state.hotel ||= blank().hotel; state.breakfast ||= blank().breakfast; state.winery ||= blank().winery;
 state.hints ||= {}; state.log ||= []; state.player ||= blank().player;
@@ -87,6 +89,17 @@ function question(actor, id) {
   if (!asked(actor, id)) state.interviews[actor].push(id);
   state.replies[actor] = { id, answer };
   record('question', actor, item[1], { answer, speaker: ROOM_IDS.includes(state.view) ? roomPerson()?.name : ACTORS[actor].name }); render();
+}
+function askFree(text) {
+  if (state.mode !== 'free' || !ROOM_IDS.includes(state.view)) return;
+  const person = roomPerson();
+  const input = String(text || '').trim().slice(0, 400);
+  if (!input) return;
+  const result = answerFreeQuestion(state.roomPeople[state.actor], input, { nextPeriodGuests: nextPeriodGuests() });
+  if (result.factId && !asked(state.actor, result.factId)) state.interviews[state.actor].push(result.factId);
+  state.replies[state.actor] = { id: result.factId, answer: result.answer };
+  record('question', state.actor, input, { answer: result.answer, speaker: person.name, mode: 'free', factId: result.factId });
+  render();
 }
 function visit(actor) {
   if (!ACTORS[actor]) return;
@@ -159,6 +172,7 @@ function townView() {
   const milestones = [has('hotel', ['price', 'bookings']), !!breakfast?.reflection, !!hotel?.reflection, !!state.hotel.elasticity?.reflection, !!state.winery.choice && !state.winery.needsReview && !!state.winery.reflection];
   const finished = milestones.filter(Boolean).length;
   return `<div class="game-heading"><div><p class="eyebrow">Day 01 · Riviera del Sole</p><h1>Hotel Sole Nascente</h1></div><span class="game-day">${finished} / ${milestones.length} steps</span></div>
+    <div class="mode-status"><span>Conversation mode: <b>${state.mode === 'free' ? 'Ask your own questions' : 'Guided'}</b></span><button type="button" data-action="change-mode">Change mode</button></div>
     <section class="game-shell" aria-label="Riviera district">
       <div class="town-stage"><canvas id="town-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable Italian coastal district. Enter the hotel, bakery, or vineyard; Ana and Enzo walk the streets with optional utility questions. Arrow keys or WASD move; E interacts. People and buildings can also be clicked."></canvas><div class="mobile-map-label hotel"><b>HOTEL SOLE NASCENTE</b><span>Pricing · demand · elasticity</span></div><div class="mobile-map-label bakery"><b>MARTA’S BAKERY</b><span>Production theory</span></div><div class="mobile-map-label winery"><b>SOLE VINEYARD</b><span>Wine purchasing</span></div>${state.overlay === 'street' ? streetOverlay() : state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
       <div class="game-status"><div class="game-objective"><span>Current objective</span><strong>${esc(task.label)}</strong></div><button class="game-go" data-visit="${task.actor}">Enter ${task.actor === 'hotel' ? 'hotel' : task.actor === 'bakery' ? 'bakery' : 'vineyard'} <span aria-hidden="true">→</span></button><div class="game-steps" role="img" aria-label="${finished} of ${milestones.length} milestones complete">${milestones.map(done => `<i class="${done ? 'done' : ''}"></i>`).join('')}</div></div>
@@ -202,9 +216,9 @@ function dialogueOverlay() {
   return `<div class="scene-shade"></div><section class="scene-dialogue business-${id}" role="dialog" aria-modal="true" aria-label="Conversation with ${esc(speaker.name)}">
     <div class="scene-dialogue-head"><span>${esc(speaker.name)} · ${esc(speaker.role)}</span><button type="button" data-action="close-overlay" aria-label="Close conversation" title="Close conversation">×</button></div>
     <div class="scene-interior ${id}" aria-hidden="true"><i></i><b></b><em></em></div>
-    <div class="scene-speech"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(current?.answer || speaker.introduction)}</p></div>
-    <div class="scene-questions"><span class="scene-caption">Ask ${esc(speaker.name)}</span>${suggestions.map((key, i) => { const item = questions.find(row => row[0] === key); return `<button type="button" data-question="${key}" class="scene-question"><b>${i + 1}</b><span>${esc(item[1])}</span></button>`; }).join('')}
-    ${questions.length > suggestions.length ? `<details><summary>More questions</summary><div class="scene-more">${questions.filter(row => !suggestions.includes(row[0])).map(row => `<button type="button" data-question="${row[0]}">${asked(id, row[0]) ? '✓ ' : ''}${esc(row[1])}</button>`).join('')}</div></details>` : ''}</div>
+    <div class="scene-speech"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(current?.answer || (state.mode === 'free' ? `Hi, I'm ${speaker.name}, the ${speaker.role.toLowerCase()}. What can I help you with?` : speaker.introduction))}</p></div>
+    ${state.mode === 'free' ? `<form class="free-question" data-form="free-question"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required placeholder="Type your own question…"><button type="submit">Ask</button></div><small>Ask for facts; you work out the calculation and decision. Responses use this case’s approved facts.</small></form>` : `<div class="scene-questions"><span class="scene-caption">Ask ${esc(speaker.name)}</span>${suggestions.map((key, i) => { const item = questions.find(row => row[0] === key); return `<button type="button" data-question="${key}" class="scene-question"><b>${i + 1}</b><span>${esc(item[1])}</span></button>`; }).join('')}
+    ${questions.length > suggestions.length ? `<details><summary>More questions</summary><div class="scene-more">${questions.filter(row => !suggestions.includes(row[0])).map(row => `<button type="button" data-question="${row[0]}">${asked(id, row[0]) ? '✓ ' : ''}${esc(row[1])}</button>`).join('')}</div></details>` : ''}</div>`}
     <div class="scene-dialogue-foot"><button type="button" class="scene-primary" data-action="workspace">Open ${id === 'hotel' ? state.hotel.decision?.reflection ? 'elasticity' : 'pricing' : id === 'bakery' ? 'production' : 'purchasing'} workspace →</button><button type="button" data-view="notebook" class="scene-secondary">Notebook</button></div>
   </section>`;
 }
@@ -409,7 +423,8 @@ function render() {
   if (interior) { interior.destroy(); interior = null; }
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
   document.querySelector('#notebook-count').textContent = state.log.length;
-  main.innerHTML = state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
+  main.innerHTML = !state.mode ? modeView() : state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
+  if (!state.mode) return;
   if (state.view === 'town') {
     town = new Town(document.querySelector('#town-canvas'), state.player, visit, (_, force) => {
       const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
@@ -425,10 +440,13 @@ function render() {
   if (state.view === 'town' || ROOM_IDS.includes(state.view)) {
     bindTouch();
     if (state.overlay) requestAnimationFrame(() => {
-      const selector = state.overlay === 'dialogue' ? '.scene-question' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
+      const selector = state.overlay === 'dialogue' ? state.mode === 'free' ? '#free-question-input' : '.scene-question' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
       main.querySelector(selector)?.focus({ preventScroll: true });
     });
   }
+}
+function modeView() {
+  return `<section class="mode-picker" aria-labelledby="mode-title"><p class="eyebrow">Hotel Sole Nascente · Start here</p><h1 id="mode-title">Choose how to talk with the people in town</h1><p>Both modes use the same hotel, bakery, winery, notebook and calculations.</p><div class="mode-cards"><button type="button" data-mode="guided"><strong>Guided</strong><span>Choose prepared questions when you talk to someone.</span></button><button type="button" data-mode="free"><strong>Ask your own questions</strong><span>Write your questions. People share facts; you make the calculations and decisions.</span></button></div><small>You can change modes later. Your progress stays on this device.</small></section>`;
 }
 function bindTouch() {
   document.querySelectorAll('[data-move]').forEach(button => {
@@ -594,6 +612,7 @@ function handleForm(form) {
 main.addEventListener('submit', e => {
   if (!e.target.matches('[data-form]')) return;
   e.preventDefault();
+  if (e.target.dataset.form === 'free-question') { askFree(new FormData(e.target).get('question')); return; }
   const name = e.target.dataset.form;
   const draft = [...e.target.elements].filter(input => input.name).map(input => ({ name: input.name, value: input.value, checked: input.checked, type: input.type }));
   handleForm(e.target);
@@ -633,6 +652,7 @@ main.addEventListener('input', e => {
 });
 main.addEventListener('change', updateScratch);
 main.addEventListener('click', e => {
+  const mode = e.target.closest('[data-mode]'); if (mode) { state.mode = mode.dataset.mode; record('mode', 'game', `Selected ${state.mode} mode`); render(); return; }
   const view = e.target.closest('[data-view]'); if (view) { go(view.dataset.view); return; }
   const place = e.target.closest('[data-visit]'); if (place) { visit(place.dataset.visit); return; }
   const street = e.target.closest('[data-street]'); if (street) { openStreet(street.dataset.street); return; }
@@ -641,6 +661,7 @@ main.addEventListener('click', e => {
   const questionButton = e.target.closest('[data-question]'); if (questionButton) { question(state.actor, questionButton.dataset.question); return; }
   const color = e.target.closest('[data-color]'); if (color) { state.player.color = color.dataset.color; save(); render(); return; }
   const action = e.target.closest('[data-action]'); if (!action) return;
+  if (action.dataset.action === 'change-mode') { state.mode = null; save(); render(); return; }
   if (action.dataset.action === 'close-overlay') { closeOverlay(); return; }
   if (action.dataset.action === 'workspace') { openWorkspace(); return; }
   if (action.dataset.action === 'dialogue') { openDialogue(); return; }
@@ -675,7 +696,7 @@ window.addEventListener('keydown', e => {
   if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay || (e.target instanceof Element && e.target.closest('input, textarea, select'))) return;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
   if (e.key === 'Escape') { closeOverlay(); return; }
-  if (state.overlay !== 'dialogue' || !['1', '2', '3'].includes(e.key)) return;
+  if (state.mode !== 'guided' || state.overlay !== 'dialogue' || !['1', '2', '3'].includes(e.key)) return;
   const choice = suggestedQuestions(state.actor)[Number(e.key) - 1];
   if (choice) question(state.actor, choice);
 });
