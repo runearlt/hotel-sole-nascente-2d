@@ -2,9 +2,9 @@ name: Student exercise checks
 
 on:
   pull_request:
-    branches: [development, main]
+    branches: [development, main, working-version]
   push:
-    branches: [development, main]
+    branches: [development, main, working-version]
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
         run: npm test
       - name: Play the student exercises
         run: |
-          python3 -m http.server 8174 --directory public &
+          node server/server.js &
           server_pid=$!
           trap 'kill $server_pid' EXIT
           for attempt in $(seq 1 20); do
