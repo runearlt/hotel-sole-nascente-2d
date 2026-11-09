@@ -1,50 +1,49 @@
 import { SCENARIO } from './config.js';
-import { hotelAtPrice } from './economics.js';
+import { HOTEL_CASE } from './case-hotel.js';
 
 // Instructor-editable role cards. Keep facts factual: decisions and calculations belong to students.
 // Each entry has an interview milestone id, matching phrases, and a short response.
 // This is a local, rule-based agent runtime; it does not send student text to an AI provider.
-const roomsAt = price => Math.round(hotelAtPrice(price).requested);
 export const FREE_AGENTS = {
   lucia: {
     name: 'Lucia', role: 'hotel manager',
-    instruction: 'State current hotel facts. Do not derive demand, MR, elasticity, a room rate, or profit.',
-    solutionBoundary: 'I can share room-rate and booking facts, but you must work out the rate and explain your choice.',
-    scopePrompt: 'Ask me about the current room rate or bookings.',
+    instruction: 'State the original hotel setting, capacity and seasonality. Do not derive TR, MR, elasticity, a room rate, or profit.',
+    solutionBoundary: 'I can tell you about the hotel and its guests, but the calculations and advice are yours.',
+    scopePrompt: 'Ask me about the hotel, its rooms, or how occupancy changes through the year.',
     concepts: [
       { match: [/what (is|does).*demand mean/, /define demand/], say: 'Demand here means the number of room nights guests request at a given price.' },
       { match: [/what (is|does).*elasticity mean/, /define elasticity/], say: 'Price elasticity describes how strongly room requests change when the room price changes.' }
     ],
     facts: [
-      { id: 'bookings', match: [/bookings?/, /requests?/, /rooms?.*(sell|sold|demand|occupied)/, /(sell|sold).*(rooms?|night)/, /demand.*(170|current)/, /how many.*(book|guest|room)/, /occupan/], say: () => `At €${SCENARIO.hotel.referencePrice}, guests request ${roomsAt(SCENARIO.hotel.referencePrice)} rooms. We have ${SCENARIO.hotel.rooms} rooms.` },
-      { id: 'price', match: [/current.*(price|rate)/, /(price|rate).*(now|currently|charge)/, /room price/, /(price|rate|charge|cost).*(room|night)/, /(room|night).*(price|rate|cost)/, /what.*charge/], say: () => `Our current room rate is €${SCENARIO.hotel.referencePrice} per night.` },
+      { id: 'bookings', match: [/bookings?/, /occupan/, /season/, /how many.*(book|guest)/, /month/, /may/], say: () => 'Occupancy changes strongly with the season. We close in January, and the case illustrates May at 45% occupancy over 31 days.' },
+      { id: 'price', match: [/current.*(price|rate)/, /(price|rate).*(now|currently|charge)/, /room price/, /(price|rate|charge|cost).*(room|night)/, /(room|night).*(price|rate|cost)/, /what.*charge/, /how many rooms/, /currency/, /unit/], say: () => `The original hotel has ${HOTEL_CASE.rooms} rooms. Table 3 prices are in DKK and Q is group room-nights; the case does not give one current room rate.` },
       { id: 'supply', match: [/breakfast/, /bakery/, /bread supply/], say: () => 'Breakfast needs a reliable bread order. Marta at the bakery knows its production plans.' }
     ]
   },
   marco: {
     name: 'Marco', role: 'reservations lead',
-    instruction: 'Give the second observation and comparability conditions. Never derive the demand equation.',
-    solutionBoundary: 'I can give you the comparison observation, but the demand calculation is yours.',
-    scopePrompt: 'Ask me about the other observation or the conditions behind it.',
+    instruction: 'Explain the case guest groups and quote their estimated inverse demand curves. Never derive TR, MR or elasticity.',
+    solutionBoundary: 'I can show you a group demand estimate, but you need to work out TR, MR and sensitivity.',
+    scopePrompt: 'Ask me about the guest groups or a particular demand curve.',
     concepts: [
       { match: [/what (is|does).*marginal revenue mean/, /define marginal revenue/], say: 'Marginal revenue is the change in total revenue from one more room sold. You need the observations to derive it for this case.' }
     ],
     facts: [
-      { id: 'other', match: [/other price/, /different price/, /second (price|rate|observation)/, /compar(e|ison).*(price|rate|book)/, /previous.*(price|rate|book)/, /another.*(price|rate|book)/, /190/], say: () => `At €${SCENARIO.hotel.comparisonPrice}, guests requested ${roomsAt(SCENARIO.hotel.comparisonPrice)} rooms.` },
-      { id: 'comparable', match: [/comparab/, /same (season|conditions|period)/, /what (changed|stayed)/, /conditions?/, /observations?/, /fair comparison/], say: () => `Yes. ${SCENARIO.hotel.conditions}` },
+      { id: 'other', match: [/demand/, /curve/, /function/, /equation/, /group a/, /group b/, /group c/, /table 3/], say: () => 'The estimated inverse demand curves are A: P = 2400 − 0.05Q; B: P = 2100 − 0.07Q; C: P = 1800 − 0.06Q. P is in DKK and Q is room-nights.' },
+      { id: 'comparable', match: [/guest groups?/, /segments?/, /individual/, /famil/, /tour/, /who (are|is)/, /share/], say: () => 'A is individual travelers without children (about 50% of high-season stays); B is group travelers (30%); C is families with children (10%).' },
       { id: 'changes', match: [/shift demand/, /affect demand/, /festival/, /competitor/, /season/], say: () => 'Season, festivals, competitor prices, and booking timing can affect demand.' }
     ]
   },
   elena: {
     name: 'Elena', role: 'operations manager',
-    instruction: 'State capacity and missing cost information. Never claim a profit-maximizing price.',
+    instruction: 'State original hotel capacity and missing room cost information. Never claim a profit-maximizing price.',
     solutionBoundary: 'I can describe capacity and missing costs, but I cannot choose your room rate.',
     scopePrompt: 'Ask me about room capacity or available cost information.',
     concepts: [
       { match: [/difference.*(revenue|profit)/, /what (is|does).*profit mean/], say: 'Revenue is money received. Profit also subtracts costs, and we do not have room operating costs.' }
     ],
     facts: [
-      { id: 'full', match: [/capacity/, /maximum.*rooms?/, /how many rooms/, /fully booked/, /more (guests|requests|rooms)/], say: () => `We can sell at most ${SCENARIO.hotel.rooms} rooms per night.` },
+      { id: 'full', match: [/capacity/, /maximum.*rooms?/, /how many rooms/, /fully booked/, /more (guests|requests|rooms)/], say: () => `The original hotel has ${HOTEL_CASE.rooms} rooms. That is a nightly limit; Table 3 demand is in room-nights over a period.` },
       { id: 'costs', match: [/costs?/, /profit/, /expenses?/, /margin/], say: () => 'Room operating costs have not been supplied. Room revenue alone cannot establish profit.' }
     ]
   },

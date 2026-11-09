@@ -1,12 +1,6 @@
-// Demonstration scenario. Replace these values with instructor-approved case data before teaching.
+// Illustrative bakery and winery extensions. Hotel case facts live in case-hotel.js.
 export const SCENARIO = Object.freeze({
-  label: 'Demonstration case · not observed hotel data',
-  hotel: {
-    name: 'Hotel Sole Nascente', rooms: 80, referencePrice: 170, comparisonPrice: 190,
-    demand: { intercept: 262, slope: -4 / 3 },
-    conditions: 'Same season, booking window, competitor prices, and service conditions in both examples.',
-    costStatus: 'Hotel operating and room-level cost data have not been supplied.'
-  },
+  label: 'Game extensions · illustrative data',
   breakfast: {
     guests: 60, revenuePerBreakfast: 3, rollsPerGuest: 1, fixedOvenCount: 1,
     plans: [
@@ -29,11 +23,11 @@ export const SCENARIO = Object.freeze({
 export const ACTORS = Object.freeze({
   hotel: {
     name: 'Lucia', role: 'Hotel manager', personality: 'Practical, careful with claims',
-    objective: 'Set a defensible room price without confusing room revenue with profit.',
-    knownFacts: ['Current and comparison prices', 'Requested rooms', '80-room physical capacity', 'Comparable conditions'],
-    model: 'Linear demand from SCENARIO.hotel.demand; room sales are capped at physical capacity.',
-    assumptions: ['Same conditions across the two demonstration observations', 'No hotel cost function supplied'],
-    introduction: 'Welcome to Hotel Sole Nascente. Let’s find out what our room prices tell us about bookings.',
+    objective: 'Interpret the original case’s guest-group demand, TR, MR and price elasticities.',
+    knownFacts: ['78-room physical capacity', 'Seasonal occupancy', 'Three customer-group demand estimates in DKK'],
+    model: 'Original case Table 3 gives inverse demand by customer group and Q in room-nights.',
+    assumptions: ['Group demand period is distinct from nightly room capacity', 'No room-level cost function supplied'],
+    introduction: 'Welcome to Hotel Sole Nascente. Let’s examine how our different guests respond to prices.',
     openingQuestion: 'price'
   },
   bakery: {

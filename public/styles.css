@@ -380,6 +380,10 @@ main:has(.game-shell) { max-width: 1050px; padding-top: 20px; }
 .free-question input { flex: 1; min-width: 0; border: 2px solid #72978d; border-radius: 2px; padding: 10px; font-size: 14px; }
 .free-question button { border: 2px solid #224946; background: #297668; color: white; padding: 8px 14px; font-weight: 800; cursor: pointer; }
 .free-question small { color: #5d716b; line-height: 1.35; }
+.student-turn { padding: 8px 13px; background: #e9f3ee; color: #254c45; font-size: 13px; border-bottom: 1px solid #8cac9f; }
+.conversation-history { padding: 6px 13px; max-height: 105px; overflow: auto; font-size: 12px; background: #f9f8f2; }
+.conversation-history summary { cursor: pointer; font-weight: 800; }
+.conversation-history p { margin: 7px 0; line-height: 1.4; }
 @media (max-width: 600px) { .mode-picker { margin: 16px 10px; padding: 18px; } .mode-cards { grid-template-columns: 1fr; } .mode-cards button { min-height: 100px; } }
 @media (max-width: 760px) {
   .scene-avatar.hotel::before { left: 4px; width: 24px; box-shadow: 21px 6px #292b34, -2px 8px #292b34; }

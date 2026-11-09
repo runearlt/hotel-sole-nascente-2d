@@ -1,9 +1,9 @@
 const WIDTH = 900, HEIGHT = 540;
 
 export const HOTEL_STAFF = {
-  lucia: { name: 'Lucia', role: 'Hotel manager', x: 190, y: 255, color: '#355c70', questions: ['price', 'bookings', 'supply'], introduction: 'Welcome in. Start with our current room price and the bookings it brings.' },
-  marco: { name: 'Marco', role: 'Reservations lead', x: 468, y: 177, color: '#47765d', questions: ['other', 'comparable', 'changes'], introduction: 'I track bookings. Compare two prices before you build a demand model.' },
-  elena: { name: 'Elena', role: 'Operations manager', x: 749, y: 385, color: '#a36b45', questions: ['full', 'costs'], introduction: 'We have a fixed number of rooms. Revenue tells only part of the story.' }
+  lucia: { name: 'Lucia', role: 'Hotel manager', x: 190, y: 255, color: '#355c70', questions: ['price', 'bookings', 'supply'], introduction: 'Welcome to Sole Nascente. Ask me about our hotel and how the season affects us.' },
+  marco: { name: 'Marco', role: 'Reservations lead', x: 468, y: 177, color: '#47765d', questions: ['other', 'comparable', 'changes'], introduction: 'I track our guest groups. Ask what the case says about their demand.' },
+  elena: { name: 'Elena', role: 'Operations manager', x: 749, y: 385, color: '#a36b45', questions: ['full', 'costs'], introduction: 'We have 78 rooms, but capacity and revenue alone do not settle a pricing decision.' }
 };
 
 export const ROOM_STAFF = {
