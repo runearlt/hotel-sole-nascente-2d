@@ -8,7 +8,7 @@ import { checkStudentDemand } from './demand-check.js';
 export const FREE_AGENTS = {
   lucia: {
     name: 'Lucia', role: 'hotel manager',
-    instruction: 'You know only your own price–quantity observation and the stated conditions. Share that complete point when asked specifically; never reveal another actor’s point or a demand function. Broad questions get an introduction and two topics, not numbers.',
+    instruction: 'You know only your own price–quantity observation and the stated conditions. Share that complete point whenever asked about prices, rooms requested or bookings; never reveal another actor’s point or a demand function. Only genuinely vague questions get an introduction and two topics. Questions naming a factual topic receive the available facts.',
     solutionBoundary: 'My observation is €170 per room for one night, with 69 rooms requested. You need to derive the demand function yourself; Marco has the other observation.',
     scopePrompt: 'Ask me about our reference room price, bookings or the conditions behind those figures.',
     concepts: [
@@ -16,9 +16,9 @@ export const FREE_AGENTS = {
       { match: [/what (is|does).*elasticity mean/, /define elasticity/], say: 'Price elasticity describes the percentage response in room requests to a percentage price change, holding other conditions fixed.' }
     ],
     facts: [
-      { id: 'price', match: [/\bprice\b/, /\brate\b/, /data point/, /observation/, /reference.*price/, /current.*(price|rate)/, /room.*(price|rate|cost)/, /(price|rate|charge|cost).*room/, /what.*charge/, /currency/, /unit/, /170/], say: () => 'At €170 per room for one night, we recorded 69 rooms requested. Marco can tell you about a separate observation.' },
+      { id: 'price', match: [/\bprices?\b/, /pricing/, /\brate\b/, /data point/, /observation/, /reference.*price/, /current.*(price|rate)/, /room.*(price|rate|cost)/, /(price|rate|charge|cost).*room/, /what.*charge/, /how much/, /nightly/, /per night/, /tariff/, /currency/, /unit/, /170/], say: () => 'At €170 per room for one night, we recorded 69 rooms requested. Marco can tell you about a separate observation.' },
       { id: 'bookings', match: [/booking/, /occupan/, /request/, /how many.*room/, /reference.*observation/, /business/, /busy/], say: () => 'At €170 per room for one night, we recorded 69 rooms requested. Marco can tell you about a separate observation.' },
-      { id: 'events', match: [/climate/, /weather/, /season/, /competitor/, /change/, /challenges?/], say: () => 'The demonstration holds season, booking window, competitor prices and service conditions fixed. Changes in those could affect demand, but no numerical effect has been supplied.' },
+      { id: 'events', match: [/climate/, /weather/, /season/, /conditions?/, /assumptions?/, /comparable/, /competitor/, /change/, /challenges?/], say: () => 'The demonstration holds season, booking window, competitor prices and service conditions fixed. Changes in those could affect demand, but no numerical effect has been supplied.' },
       { id: 'supply', match: [/breakfast/, /bakery/, /bread/], say: () => 'Marta handles the optional breakfast exercise. Its guest counts and euro figures are separate assumptions, independent of this room-pricing demonstration.' }
     ]
   },
@@ -31,7 +31,7 @@ export const FREE_AGENTS = {
       { match: [/what (is|does).*marginal revenue mean/, /define marginal revenue/], say: 'Marginal revenue means the change in total revenue from an additional room sold. You need to derive the function yourself.' }
     ],
     facts: [
-      { id: 'other', match: [/comparison/, /different price/, /other price/, /190/, /observation/, /price/, /booking/, /request/, /occupan/], say: () => 'At €190 per room for one night, we recorded 54 rooms requested. Lucia has a separate observation for you.' },
+      { id: 'other', match: [/comparison/, /different price/, /other price/, /190/, /observation/, /price/, /booking/, /request/, /occupan/, /how many.*room/, /how much/, /nightly/, /per night/, /rate/, /charge/, /tariff/], say: () => 'At €190 per room for one night, we recorded 54 rooms requested. Lucia has a separate observation for you.' },
       { id: 'comparable', match: [/comparable/, /conditions?/, /same/, /booking window/, /season/], say: () => HOTEL_DEMO.conditions },
       { id: 'income', match: [/income/, /earnings/], say: () => 'I do not have income-elasticity estimates for this hotel.' },
       { id: 'cross', match: [/cross price/, /offer [ab]/, /offers?/], say: () => 'I do not have cross-price elasticities or numerical data for Offers A and B.' }
@@ -118,7 +118,8 @@ const normalize = text => String(text).toLowerCase().replace(/[^a-z0-9€]+/g, '
 const relevant = (fact, text) => fact.match.some(pattern => pattern.test(text));
 export const isBroadQuestion = text => {
   const input=normalize(text);
-  return input.length<5 || /^(help|what|why|how|tell me|tell me more|i don t know)$/.test(input) || /^(what can you tell me|tell me about|what do you know about)/.test(input);
+  const namesTopic = Object.values(FREE_AGENTS).some(actor => actor.facts.some(fact => relevant(fact, input)));
+  return !namesTopic && (input.length<5 || /^(help|what|why|how|tell me|tell me more|i don t know)$/.test(input) || /^(what can you tell me|tell me about|what do you know about)/.test(input));
 };
 
 export function factReply(personId, fact, question, context = {}) {
@@ -154,10 +155,13 @@ export function answerFreeQuestion(personId, text, context = {}) {
   if (personId === 'paolo' && /^(and|what about|how about) (one|two|three|1|2|3)\b/.test(input)) {
     if (context.history?.some(turn => agent.facts.some(fact => relevant(fact, normalize(turn.question))))) input += ' bakers';
   }
-  if (/^(and|what about|how about) (the )?(price|bookings|number|conditions)\b/.test(input) && !context.history?.length) return result(agent.scopePrompt);
+  if (point && /^(?:and )?(?:how many|how much|what number|at what price|what about that)(?: (?:rooms|requests))?$/.test(input) && context.history?.length) {
+    return result(factReply(personId, agent.facts[0], input, context), pointIds);
+  }
   const matches = agent.facts.filter(item => followupFactId ? item.id === followupFactId : relevant(item, input));
   if (personId === 'marco') matches.sort((a, b) => Number(a.id === 'other') - Number(b.id === 'other'));
   if (personId === 'lucia' && /booking|request|occupan|how many/.test(input)) matches.sort((left, right) => Number(right.id === 'bookings') - Number(left.id === 'bookings'));
+  if (personId === 'lucia' && /conditions?|assumptions?|comparable/.test(input)) matches.sort((a,b)=>Number(b.id==='events')-Number(a.id==='events'));
   const facts = matches.slice(0, /\band\b|\bboth\b/.test(input) ? 2 : 1);
   if (facts.length) {
     const credited = personId === 'lucia' && facts.some(fact => ['price', 'bookings'].includes(fact.id)) ? ['price', 'bookings', ...facts.filter(fact => !['price', 'bookings'].includes(fact.id)).map(fact => fact.id)] : facts.map(fact => fact.id);
