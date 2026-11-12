@@ -11,7 +11,7 @@ export const SCENARIO = Object.freeze({
   },
   wine: {
     outsideDiners: 20,
-    dinnerGuests: 100,
+    dinnerGuests: 80,
     options: [
       { id: 'house', name: 'Coastal house wine', price: 8, available: 100, tasting: 'Fresh and easy to pair; tasting panel score 7/10.' },
       { id: 'mixed', name: 'Estate reserve plus house wine', price: null, available: 100, tasting: 'Estate reserve scored 9/10 in the same small panel, but only 60 bottles are available.' }

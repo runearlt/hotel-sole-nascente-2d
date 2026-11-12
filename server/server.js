@@ -16,11 +16,11 @@ export async function converse(body, { key = process.env.OPENAI_API_KEY, fetcher
   const response = await fetcher('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, instructions: prepared.instructions, input: prepared.input, max_output_tokens: 180, store: false }),
+    body: JSON.stringify({ model, instructions: prepared.instructions, input: prepared.input, max_output_tokens: 600, ...(model === 'gpt-5-mini' ? { reasoning: { effort: 'minimal' }, text: { verbosity: 'low' } } : {}), store: false }),
     signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) throw new Error(`Model service returned ${response.status}`);
-  try { return { answer: extractAnswer(await response.json()), factId: prepared.fallback.factId, source: 'model' }; }
+  try { return { answer: extractAnswer(await response.json(), prepared), factId: prepared.fallback.factId, factIds: prepared.fallback.factIds || [], source: 'model' }; }
   catch { return { ...prepared.fallback, source: 'fallback' }; }
 }
 

@@ -38,6 +38,6 @@ export const CASE_CONTEXT = Object.freeze({
   giulia: [
     'The wine inventory task is a game extension, not a calculation in the original case.',
     'At most 60 estate-reserve bottles are available in the game period; house wine can cover the rest.',
-    'The game assumes one bottle per dinner and 20 outside diners, in addition to room guests from the student’s hotel decision.'
+    'The optional game extension assumes 60 resident dinner guests and 20 outside diners, one bottle per dinner. This illustrative forecast is independent of Table 3 demand.'
   ]
 });

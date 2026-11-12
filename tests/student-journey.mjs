@@ -35,6 +35,7 @@ async function runJourney(width, height, mode = 'guided') {
     one: 'What does one baker produce?', two: 'What do two bakers produce?', three: 'What do three bakers produce?',
     other: 'What are the demand curves for groups A, B and C?', comparable: 'Who are the guest groups?',
     full: 'What is the room capacity?', costs: 'Are hotel operating costs available?',
+    income: 'What income elasticities does Table 3 give?', cross: 'What do we know about Offers A and B?', events: 'What climate challenges does the case describe?',
     options: 'What are the wine options and prices?', taste: 'What did the tasting panel score?',
     stock: 'What is the estate reserve stock limit?', forecast: 'What is the dinner forecast?'
   };
@@ -67,45 +68,116 @@ async function runJourney(width, height, mode = 'guided') {
       await page.locator('.scene-speech').getByText(/Paolo/).waitFor();
       assert.match(await page.locator('.scene-speech').innerText(), /Paolo/);
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).interviews.hotel), []);
+      let delayedRoute, announceArrival;
+      const delayedQuestion = 'How many rooms do you have? Please take your time.';
+      const arrived = new Promise(resolve => { announceArrival = resolve; });
+      await page.route('**/api/actor', route => {
+        if (route.request().postDataJSON()?.question === delayedQuestion) { delayedRoute = route; announceArrival(); }
+        else route.continue();
+      });
+      await page.locator('#free-question-input').fill(delayedQuestion);
+      await click('.free-question button[type="submit"]');
+      await arrived;
+      await closeTalk();
+      await click('.interior-actions [data-person="marco"]');
+      await delayedRoute.fulfill({ contentType: 'application/json', body: JSON.stringify({ answer: 'Lucia’s delayed reply: we have 78 rooms.', factId: 'price', source: 'fallback' }) });
+      await page.waitForFunction(question => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).log.some(row => row.detail === question), delayedQuestion);
+      assert.doesNotMatch(await page.locator('.scene-speech').innerText(), /Lucia’s delayed reply/);
+      await page.unroute('**/api/actor');
+      await closeTalk();
+      await click('.interior-actions [data-person="lucia"]');
     }
     await ask('price', 'bookings');
+    await ask('events');
     await closeTalk();
-    await click('.interior-actions [data-view="town"]');
-
+    await click('.interior-actions [data-person="marco"]');
+    await ask('other', 'comparable');
+    await ask('income', 'cross');
+    await closeTalk();
+    await click('.interior-actions [data-person="elena"]');
+    await ask('full', 'costs');
+    await click('.scene-dialogue [data-action="workspace"]');
+    await page.locator('[name="tr"]').fill('-0.05');
+    await click('[data-action="hint"]');
+    assert.equal(await page.locator('[name="tr"]').inputValue(), '-0.05', 'hints must retain unfinished work');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    assert.equal(await page.locator('[name="tr"]').inputValue(), '-0.05', 'draft must survive reload');
+    await fill(page.locator('[data-form="case-hotel-mr"]'), { tr: 0, mr: -0.1 });
+    assert.equal(await page.locator('[name="tr"]').inputValue(), '0', 'rejected answer must remain editable');
+    await fill(page.locator('[data-form="case-hotel-mr"]'), { tr: -0.05, mr: -0.1 });
+    await fill(page.locator('[data-form="case-hotel-elasticity"]'), { A: -1.4, B: -2, C: -3.5, least: 'A', explanation: 'Price elasticity compares percentage demand and price changes. I compare absolute values at the same price, holding other demand factors and the case period fixed.' });
+    await fill(page.locator('[data-form="case-hotel-advice"]'), { offerA: 'substitute', offerB: 'complement', reflection });
+    const modelDraft = 'My model draft: room-night demand depends on own price, income and related prices.';
+    await page.locator('[data-form="case-hotel-model"] [name="model"]').fill(modelDraft);
+    await page.locator('[name="own"]').selectOption('negative');
+    await click('[data-action="hint"]');
+    assert.match(await page.locator('.hint-box').innerText(), /factors.*room-night demand/i);
+    assert.equal(await page.locator('[name="model"]').inputValue(), modelDraft);
+    await click('.mini-tool-links [data-view="notebook"]');
+    await click('.screen-head [data-view="hotel"]');
+    await click('.interior-actions [data-action="workspace"]');
+    assert.equal(await page.locator('[name="model"]').inputValue(), modelDraft, 'notebook visit must retain draft');
+    assert.equal(await page.locator('[name="own"]').inputValue(), 'negative');
+    await mkdir('test-artifacts', { recursive: true });
+    await page.screenshot({ path: join('test-artifacts', `hotel-model-${mode}-${width}.png`) });
+    await fill(page.locator('[data-form="case-hotel-model"]'), { own: 'negative', income: 'positive', substitute: 'positive', complement: 'negative', model: 'Q = a - bP + cI + dPs - ePk. Q is room-nights and prices are DKK. Sensitivities depend on the segment and must be estimated with additional data.' });
+    await fill(page.locator('[data-form="case-hotel-changes"]'), { event: 'climate', reflection: 'Climate events may shift baseline demand and could alter sensitivity to substitute and complement prices. Neither coefficient direction is established without additional evidence.' });
+    await page.getByRole('heading', { name: 'Hotel case completed', exact: true }).waitFor();
+    await click('[data-case-step="interpretation"]');
+    assert.equal(await page.locator('[name="reflection"]').inputValue(), reflection, 'review must load saved answer');
+    const revisedReflection = `${reflection} I would also compare percentage responses across all three groups.`;
+    await fill(page.locator('[data-form="case-hotel-advice"]'), { offerA: 'substitute', offerB: 'complement', reflection: revisedReflection });
+    await page.getByRole('heading', { name: 'Hotel case completed', exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).caseHotel.interpretation.reflection), revisedReflection);
+    const caseState = await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')));
+    assert.equal(caseState.breakfast.decision, null, 'hotel must complete without bakery');
+    assert.equal(caseState.winery.choice, null, 'hotel must complete without winery');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Hotel case completed', exact: true }).waitFor();
+    await click('.mini-head [data-action="close-overlay"]');
     await click('.game-go');
+    await page.getByRole('heading', { name: 'Field notebook', exact: true }).waitFor();
+    assert.match(await page.locator('.panel.full').first().innerText(), /Multiple demand model/);
+    const downloadPromise = page.waitForEvent('download');
+    await click('[data-action="export"]');
+    const download = await downloadPromise;
+    assert.equal(download.suggestedFilename(), 'sole-bay-notebook.json');
+    const downloadStream = await download.createReadStream();
+    let exportedText = '';
+    for await (const chunk of downloadStream) exportedText += chunk.toString();
+    const exported = JSON.parse(exportedText);
+    assert.equal(exported.state.caseHotel.interpretation.reflection, revisedReflection);
+    assert.ok(exported.state.caseHotel.demandModel.model);
+    assert.ok(exported.state.caseHotel.changes.reflection);
+    await click('.screen-head [data-view="hotel"]');
+    await click('.interior-actions [data-view="town"]');
+    assert.match(await page.locator('.game-objective').innerText(), /Hotel case complete/);
+
+    await click('[data-visit="bakery"]');
     await click('.game-go');
     await ask('order', 'cost');
     await closeTalk();
     await click('.interior-actions [data-person="paolo"]');
     await ask('one', 'two', 'three');
-    await click('.scene-dialogue [data-action="workspace"]');
+    await closeTalk();
+    await click('.game-go[data-action="workspace"]');
     assert.equal(await page.locator('.observation-table').isVisible(), true);
     for (const [bakers, extra, cost, served] of [[1, 40, 44, 40], [2, 20, 76, 60], [3, 5, 99, 60]]) {
       await fill(page.locator('[data-form="bakery-test"]'), { bakers, predictedExtra: extra, predictedCost: cost, prediction: served });
+      if (bakers < 3) assert.equal(await page.locator('[name="bakers"]').first().inputValue(), String(bakers + 1), 'next untested plan should be selected');
     }
     await fill(page.locator('[data-form="bakery-decide"]'), { bakers: 2, reason });
     await fill(page.locator('[data-form="bakery-reflect"]'), { reflection });
     await town();
 
-    await click('.game-go');
-    await click('.game-go');
-    await ask('other', 'comparable');
-    await closeTalk();
-    await click('.interior-actions [data-person="elena"]');
-    await ask('full', 'costs');
-    await click('.scene-dialogue [data-action="workspace"]');
-    await fill(page.locator('[data-form="case-hotel-mr"]'), { tr: -0.05, mr: -0.1 });
-    await fill(page.locator('[data-form="case-hotel-elasticity"]'), { A: -1.4, B: -2, C: -3.5, least: 'A' });
-    await fill(page.locator('[data-form="case-hotel-advice"]'), { offerA: 'substitute', offerB: 'complement', reflection });
-    await town();
-
-    await click('.game-go');
+    await click('[data-visit="winery"]');
     await click('.game-go');
     await ask('options', 'taste');
     await closeTalk();
     await click('.interior-actions [data-person="giulia"]');
     await ask('stock', 'forecast');
-    await click('.scene-dialogue [data-action="workspace"]');
+    await closeTalk();
+    await click('.game-go[data-action="workspace"]');
     const wine = page.locator('[data-form="winery-decide"]');
     await wine.locator('[name="choice"][value="house"]').check();
     await fill(wine, { predictedEstate: 0, predictedHouse: 80, predictedCost: 640, reason });
@@ -118,6 +190,8 @@ async function runJourney(width, height, mode = 'guided') {
     assert.ok(state.winery.reflection, 'wine reflection missing');
     assert.deepEqual(errors, [], 'browser reported page errors');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px workspace overflows`);
+    await mkdir('test-artifacts', { recursive: true });
+    await page.screenshot({ path: join('test-artifacts', `verified-${mode}-${width}.png`) });
     console.log(`${width}x${height} ${mode}: visible student journey completed`);
   } catch (error) {
     await mkdir('test-artifacts', { recursive: true });

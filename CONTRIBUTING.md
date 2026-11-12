@@ -10,7 +10,7 @@
 
 ## Local checks
 
-Install once with `npm ci` and `npx playwright install chromium`. Then start a local server with `python3 -m http.server 8174 --directory public` and run:
+Install once with `npm ci` and `npx playwright install chromium`. Then start the local server with `npm start` and run:
 
 ```sh
 npm test
@@ -18,4 +18,4 @@ npm run test:student
 npm run test:simulation
 ```
 
-The student journey clicks visible controls through the full hotel, bakery, and vineyard exercises at desktop and mobile widths. The 200-profile simulation probes calculations, mistakes, hints, and retries. Both are automated tests, **not evidence that real students learned or finished in 30 minutes**. Timed classroom observation and student feedback remain necessary.
+The student journey clicks visible controls through the main hotel case before the optional bakery and vineyard exercises at desktop and mobile widths, in both dialogue modes. The 100-profile simulation probes calculations, mistakes, hints, and retries. Both are automated tests, **not evidence that real students learned or finished in 30 minutes**. Timed classroom observation and student feedback remain necessary. See `tests/CASE_REVIEW.md` for the case and mathematics audit, and `tests/PLAYTEST.md` for verification scope.

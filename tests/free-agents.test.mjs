@@ -64,3 +64,50 @@ test('concept explanations do not reveal or credit case solutions', () => {
   assert.match(marginal.answer, /extra output/i);
   assert.doesNotMatch(marginal.answer, /20 rolls|5 rolls/i);
 });
+
+test('factual equations are allowed and group-specific questions disclose only that curve', () => {
+  const result = answerFreeQuestion('marco', 'What is the equation for group A?');
+  assert.equal(result.factId, 'other');
+  assert.match(result.answer, /2400/);
+  assert.doesNotMatch(result.answer, /2100|1800|−1\.4/);
+  const next = answerFreeQuestion('marco', 'And what about B?');
+  assert.equal(next.factId, 'other');
+  assert.match(next.answer, /2100/);
+  assert.doesNotMatch(next.answer, /2400|1800/);
+});
+
+test('natural follow-ups, greetings and compound questions retain role boundaries', () => {
+  const followup = answerFreeQuestion('paolo', 'And two?', { history: [{ question: 'What can one baker produce?', answer: 'One baker makes 40 rolls.' }] });
+  assert.equal(followup.factId, 'two');
+  assert.match(followup.answer, /60/);
+  const greeting = answerFreeQuestion('marta', 'Hello');
+  assert.match(greeting.answer, /Hello.*Marta/);
+  assert.equal(greeting.factId, null);
+  const combined = answerFreeQuestion('lucia', 'How many rooms do you have and how does occupancy change by season?');
+  assert.deepEqual(new Set(combined.factIds), new Set(['price', 'bookings']));
+  assert.match(combined.answer, /78/);
+  assert.match(combined.answer, /45%/);
+  assert.equal(answerFreeQuestion('lucia', 'What are the income elasticities?').factId, null);
+  assert.match(answerFreeQuestion('lucia', 'What are the income elasticities?').answer, /Marco/);
+});
+
+test('actors can disclose the raw evidence for questions 4.1.2 and 4.1.4 without solving them', () => {
+  assert.equal(answerFreeQuestion('marco', 'What income elasticities are given?').factId, 'income');
+  const cross = answerFreeQuestion('marco', 'What do we know about Offers A and B?');
+  assert.equal(cross.factId, 'cross');
+  assert.match(cross.answer, /-3\.3/);
+  assert.doesNotMatch(cross.answer, /Offer A is a substitute|Offer B is a complement/i);
+  const events = answerFreeQuestion('lucia', 'What climate challenges does the case describe?');
+  assert.equal(events.factId, 'events');
+  assert.match(events.answer, /heat.*rain.*hail/);
+});
+
+test('follow-ups preserve the income topic and location questions do not unlock hotel facts', () => {
+  const income = answerFreeQuestion('marco', 'And B?', { history: [{ question: 'What income elasticity does group A have?', answer: 'A: 1.5' }] });
+  assert.equal(income.factId, 'income');
+  assert.match(income.answer, /2\.8/);
+  assert.doesNotMatch(income.answer, /2100|1\.5/);
+  const location = answerFreeQuestion('lucia', 'Where is the hotel located?');
+  assert.equal(location.factId, null);
+  assert.match(location.answer, /Sirmione/);
+});

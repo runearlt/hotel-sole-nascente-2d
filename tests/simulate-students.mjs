@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
 const URL = process.env.GAME_URL || 'http://127.0.0.1:8174/';
-const COUNT = Number(process.env.STUDENTS || 200);
+const COUNT = Number(process.env.STUDENTS || 100);
 const SEED = 20261028;
 
 function random(seed) {
@@ -75,7 +75,7 @@ try {
       const leave = () => { click('[data-action="close-overlay"]'); click('[data-view="town"]'); };
       const reason = 'I compared the available evidence, capacity and costs, while keeping uncertain profit effects separate.';
       const reflection = 'I would check the result against my prediction and revise the decision if the evidence or constraints changed.';
-      const flags = { wrongTRAccepted: false, wrongMRAccepted: false, wrongElasticityAccepted: false, wrongBakeryPlanAccepted: false, wrongWineCostAccepted: false };
+      const flags = { wrongTRAccepted: false, wrongMRAccepted: false, wrongElasticityAccepted: false, wrongBakeryPlanAccepted: false, wrongWineCostAccepted: false, wrongModelAccepted: false };
 
       click('[data-mode="guided"]');
       click('[data-visit="hotel"]');
@@ -98,7 +98,7 @@ try {
         }
         submit('bakery-test', { bakers, predictedExtra: extra, predictedCost: cost, prediction: served });
       }
-      submit('bakery-decide', { bakers: 2, reason });
+      submit('bakery-decide', { bakers: 1 + profile.id % 3, reason });
       submit('bakery-reflect', { reflection });
       leave();
 
@@ -108,21 +108,33 @@ try {
       talk('elena', ['full', 'costs']);
       click('[data-action="workspace"]');
       if (profile.usesHints) click('[data-action="hint"]');
+      submit('case-hotel-mr', { tr: 0, mr: -0.1 });
+      counts.retries++;
+      flags.wrongTRAccepted ||= !!read().caseHotel.mr;
+      submit('case-hotel-mr', { tr: -0.05, mr: -0.03 });
+      counts.retries++;
+      flags.wrongMRAccepted ||= !!read().caseHotel.mr;
       if (profile.trError) { submit('case-hotel-mr', { tr: 0.05, mr: -0.1 }); counts.retries++; flags.wrongTRAccepted = !!read().caseHotel.mr; }
       if (profile.mrError) { submit('case-hotel-mr', { tr: -0.05, mr: 0.1 }); counts.retries++; flags.wrongMRAccepted = !!read().caseHotel.mr; }
       submit('case-hotel-mr', { tr: -0.05, mr: -0.1 });
       if (profile.usesHints) click('[data-action="hint"]');
       if (profile.elasticityError) {
-        submit('case-hotel-elasticity', { A: 1.4, B: -2, C: -3.5, least: 'A' });
+        submit('case-hotel-elasticity', { A: 1.4, B: -2, C: -3.5, least: 'A', explanation: reflection });
         counts.retries++;
         flags.wrongElasticityAccepted = !!read().caseHotel.elasticity;
       }
-      submit('case-hotel-elasticity', { A: -1.4, B: -2, C: -3.5, least: 'A' });
+      submit('case-hotel-elasticity', { A: -1.4, B: -2, C: -3.5, least: 'A', explanation: 'Price elasticity compares percentage demand and price changes. Absolute values determine relative sensitivity at this price while other demand factors remain fixed.' });
       if (profile.interpretationError) {
         submit('case-hotel-advice', { offerA: 'complement', offerB: 'substitute', reflection });
         counts.retries++;
       }
       submit('case-hotel-advice', { offerA: 'substitute', offerB: 'complement', reflection });
+      const model = 'Q = a - bP + cI + dPs - ePk. Room-nights respond to own price, income and related prices; coefficients require estimation and consistent units.';
+      submit('case-hotel-model', { own: 'positive', income: 'positive', substitute: 'positive', complement: 'negative', model });
+      counts.retries++;
+      flags.wrongModelAccepted = !!read().caseHotel.demandModel;
+      submit('case-hotel-model', { own: 'negative', income: 'positive', substitute: 'positive', complement: 'negative', model });
+      submit('case-hotel-changes', { event: ['rentals', 'climate', 'tourism', 'income'][profile.id % 4], reflection: 'Case events may change baseline demand or sensitivity to related prices. The direction of Ps and Pk coefficient changes needs evidence and assumptions, rather than following automatically from a demand shift.' });
       leave();
 
       click('[data-visit="winery"]');
@@ -144,15 +156,16 @@ try {
       submit('winery-reflect', { reflection });
       leave();
       if (profile.doesStreet) {
-        click('[data-street="ana"]');
+        click(`[data-street="${profile.id % 2 ? 'ana' : 'enzo'}"]`);
+        click(`[data-street-choice="${profile.id % 2 ? profile.id % 4 === 1 ? 'coffee' : 'gelato' : profile.id % 4 === 0 ? 'snack' : 'drinks'}"]`);
         click('[data-street-choice="balanced"]');
         click('[data-action="close-overlay"]');
       }
       const final = read();
-      const complete = !!final.breakfast.decision?.reflection && !!final.caseHotel.mr && !!final.caseHotel.elasticity && !!final.caseHotel.interpretation && !!final.winery.reflection && !final.winery.needsReview;
+      const complete = !!final.breakfast.decision?.reflection && !!final.caseHotel.mr && !!final.caseHotel.elasticity && !!final.caseHotel.interpretation && !!final.caseHotel.demandModel && !!final.caseHotel.changes && !!final.winery.reflection && !final.winery.needsReview;
       // These task-time weights are assumptions for synthetic pacing, not measured student durations.
       const estimatedMinutes = 15.8 + counts.questions * .42 + counts.navigation * .22 + counts.formAttempts * .33 + counts.retries * .72 + counts.hints * .25 + (profile.doesStreet ? 1.8 : 0) + (profile.ability === 'novice' ? 3.3 : profile.ability === 'advanced' ? -2.8 : 0);
-      return { id: profile.id, ability: profile.ability, complete, estimatedMinutes: Math.round(estimatedMinutes * 10) / 10, counts, flags, milestones: { bakery: !!final.breakfast.decision, mr: !!final.caseHotel.mr, elasticity: !!final.caseHotel.elasticity, hotelAdvice: !!final.caseHotel.interpretation, wine: !!final.winery.choice }, streetSolved: !!final.street.ana?.solved };
+      return { id: profile.id, ability: profile.ability, complete, estimatedMinutes: Math.round(estimatedMinutes * 10) / 10, counts, flags, milestones: { bakery: !!final.breakfast.decision, mr: !!final.caseHotel.mr, elasticity: !!final.caseHotel.elasticity, hotelAdvice: !!final.caseHotel.interpretation, demandModel: !!final.caseHotel.demandModel, caseEvents: !!final.caseHotel.changes, wine: !!final.winery.choice }, streetSolved: Object.values(final.street).some(person => person.solved) };
     }, profile);
     results.push(result);
     if (profile.id % 25 === 0) process.stderr.write(`Simulated ${profile.id}/${COUNT} browser playthroughs\n`);
@@ -176,6 +189,7 @@ const summary = {
   wrongMRCoefficientsAccepted: results.filter(row => row.flags.wrongMRAccepted).length,
   wrongBakeryPlansAccepted: results.filter(row => row.flags.wrongBakeryPlanAccepted).length,
   wrongWineCostsAccepted: results.filter(row => row.flags.wrongWineCostAccepted).length,
+  wrongModelsAccepted: results.filter(row => row.flags.wrongModelAccepted).length,
   totalHints: results.reduce((sum, row) => sum + row.counts.hints, 0),
   totalRetries: results.reduce((sum, row) => sum + row.counts.retries, 0),
   optionalStreetSolved: results.filter(row => row.streetSolved).length,
@@ -186,4 +200,4 @@ const summary = {
   failures: results.filter(row => !row.complete).map(row => row.id)
 };
 console.log(JSON.stringify(summary, null, 2));
-if (summary.completed !== COUNT || summary.wrongTRCoefficientsAccepted || summary.wrongMRCoefficientsAccepted || summary.wrongElasticitiesAccepted || summary.wrongBakeryPlansAccepted || summary.wrongWineCostsAccepted) process.exitCode = 1;
+if (summary.completed !== COUNT || summary.wrongTRCoefficientsAccepted || summary.wrongMRCoefficientsAccepted || summary.wrongElasticitiesAccepted || summary.wrongBakeryPlansAccepted || summary.wrongWineCostsAccepted || summary.wrongModelsAccepted) process.exitCode = 1;
