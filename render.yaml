@@ -1,11 +1,17 @@
 services:
   - type: web
     runtime: node
-    name: hotel-sole-nascente-2d-game
-    branch: open-version-api
+    name: hotel-sole-nascente-api-version
+    branch: api-version
     plan: free
     buildCommand: "npm ci --omit=dev"
     startCommand: "npm start"
     envVars:
+      - key: ACTOR_API_MODE
+        value: offline
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+      - key: ACTOR_MAX_CALLS_PER_DAY
+        value: "400"
       - key: OPENAI_API_KEY
         sync: false

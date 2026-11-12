@@ -1,0 +1,24 @@
+# Offline preparation audit
+
+The implementation follows the OMEGA meeting summary of 10 November 2026 and the subsequent explicit actor requirements. Meeting proposals for two separate game worlds, shared private actor knowledge, institutional API administration and thesis supervision were not treated as settled implementation requirements.
+
+| Requirement | Current implementation and evidence |
+| --- | --- |
+| Model interprets questions and chooses its own relevant evidence | `server/role-cards.js` supplies only the current actor's card. `server/actor-api.js` requests a natural answer with selected fact IDs, not a rewrite of a prescribed answer. A test supplies an unfamiliar question with no rule-matched fact and verifies that a model-selected permitted observation is accepted. |
+| Defined roles and gradual disclosure | Seven cards include responsibilities, professional voice, two discussion topics, factual knowledge, missing-information behaviour and disclosure rules. Broad replies cannot claim numerical evidence; replies are limited to two selected facts and three sentences. |
+| Independent actor memory | The server ignores client histories and stores up to six own turns by student cookie, page session and actor. HTTP tests cover separate students, colleagues, reloads and forged histories. |
+| One hotel point per actor | Lucia owns €170/69; Marco owns €190/54. Prompt inspection and adversarial output tests check exclusion of the other point, units, complete observations, mismatched values and fabricated data. |
+| Students derive and calculate | Actors never receive reference equations in their cards. Guards reject equations, worked numerical results, recommendations and calculation methods. Submitted-demand checking is separate and returns confirmation/reflection without a corrected answer. Workspace tests require correctly derived demand before TR/MR and reject incorrect elasticity, rate predictions and profit claims. |
+| Main case and optional exercises | `public/student-case.html` introduces the investigation without the observations or equation. Free-text conversations, notebook evidence and workspace progression retain the hotel as the core route. Optional bakery and wine use consistent batch, contract, surplus, sharing and stock assumptions. |
+| No spending during preparation | Offline is the default even when a key exists. Test bootstrap removes credentials and blocks external fetches. Mock transport requires explicit injection and is labelled simulated. Future live smoke testing refuses to run without `--allow-paid`. |
+| Configuration and service failures | Unit/HTTP tests cover missing keys, provider status categories, rejected/incomplete output, timeouts, network failures, rate windows, daily attempt caps and concurrency release. `/api/status` explicitly does not claim provider verification. |
+| Honest visible reply sources | Browser checks verify simulated and rule-based labels; Safari review confirmed the offline label. Actual live mode only labels an accepted provider response as AI. Notebook records retain source/reason and available provider request IDs. |
+| Meaningful offline verification | 48 unit/HTTP tests, two browser journeys at 1280×800 and 390×844, and 100 isolated synthetic student profiles passed. The profiles received 1,500 mock replies, no live replies and no unintended fallbacks. No deliberately incorrect calculation or profit claim was accepted. |
+| Deployable package | Production dependencies installed with `npm ci --omit=dev --offline --no-audit --no-fund`; actual `npm start` served the game, written case and status endpoint and returned correct offline actor facts from an isolated source copy. The verification snapshot records matching source hashes. |
+| Later activation | `RENDER_ACTIVATION.md` supplies the Node service, branch, build/start commands, environment settings, offline checks, funded switch, three-question paid smoke test, troubleshooting and human pilot. |
+
+`tests/OFFLINE_VERIFICATION.json` contains the recorded test results and runtime source hashes. Full local logs and screenshots are under ignored `test-artifacts/`. These are synthetic protocol and workflow tests, not real students or evidence of learning. The injected provider is deterministic; it does not establish language-model quality.
+
+## Remaining funded and external verification
+
+No paid model call, hosted Render deployment, live-account access check or classroom pilot was performed for this preparation. Once credits are available, run the explicitly gated three-question live check and evaluate natural conversation and pedagogical behaviour in the game. Usage counters and conversation memory are process-local; they are not a durable currency budget or a database. The release can be deployed with `ACTOR_API_MODE=offline` now and deliberately activated later.

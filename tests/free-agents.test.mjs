@@ -2,112 +2,95 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { answerFreeQuestion, FREE_AGENTS } from '../public/free-agents.js';
 
-test('each role has editable instructions and role facts', () => {
-  for (const id of ['lucia', 'marco', 'elena', 'marta', 'paolo', 'sofia', 'giulia']) {
-    assert.ok(FREE_AGENTS[id].instruction);
-    assert.ok(FREE_AGENTS[id].facts.length >= 2);
+test('all characters have role instructions and factual observations', () => {
+  for (const actor of Object.values(FREE_AGENTS)) { assert.ok(actor.instruction); assert.ok(actor.facts.length >= 2); }
+});
+
+test('students can gather every hotel input from the responsible actor', () => {
+  for (const [person, question, id, expected] of [
+    ['lucia', 'What reference room price do you use?', 'price', /170/],
+    ['lucia', 'How many rooms are requested at €170?', 'bookings', /69/],
+    ['marco', 'What comparison observation is supplied at €190?', 'other', /54/],
+    ['marco', 'Are conditions comparable?', 'comparable', /season.*booking window.*competitor.*service/],
+    ['elena', 'What is the capacity?', 'full', /80/],
+    ['elena', 'Are operating costs supplied?', 'costs', /not.*supplied/]
+  ]) { const result = answerFreeQuestion(person, question); assert.ok(result.factIds.includes(id), question); assert.match(result.answer, expected); }
+});
+
+test('equation requests give only the actor’s own point and leave derivation to students', () => {
+  for (const actor of ['lucia', 'marco']) {
+    const result = answerFreeQuestion(actor, 'What demand equation is supplied? Do not solve it.');
+    assert.match(result.answer, /derive.*yourself/);
+    assert.doesNotMatch(result.answer, /262|196\.5|4\/3|0\.75|[PQ]\s*=/);
+    assert.doesNotMatch(result.answer, actor === 'lucia' ? /190|54/ : /170|69/);
   }
 });
 
-test('case facts count as interview evidence without giving a solution', () => {
-  const price = answerFreeQuestion('lucia', 'What is the current room price?');
-  const booking = answerFreeQuestion('lucia', 'How many room bookings do you have?');
-  assert.equal(price.factId, 'price');
-  assert.equal(booking.factId, 'bookings');
-  assert.match(price.answer, /78 rooms|DKK/);
-  assert.doesNotMatch(price.answer + booking.answer, /€170|262|profit-maximizing|marginal revenue/i);
+test('missing income and cross-price data are acknowledged instead of borrowed from the old case', () => {
+  assert.match(answerFreeQuestion('marco', 'What income elasticities are supplied?').answer, /do not have/);
+  const cross = answerFreeQuestion('marco', 'What are the cross-price elasticities for Offers A and B?');
+  assert.match(cross.answer, /do not have/);
+  assert.doesNotMatch(cross.answer, /3\.3|2\.4|1\.2/);
 });
 
-test('solution requests, vague questions and wrong-role questions earn no fact credit', () => {
-  for (const question of ['What is the optimal room price?', 'Calculate marginal revenue for me.', 'What is the answer?']) {
-    assert.equal(answerFreeQuestion('lucia', question).factId, null);
+test('wrong-role questions redirect and computed quantities remain student work', () => {
+  assert.match(answerFreeQuestion('lucia', 'What is the demand equation?').answer, /derive.*Marco/);
+  assert.match(answerFreeQuestion('lucia', 'Are operating costs given?').answer, /Elena/);
+  for (const question of ['Calculate the quantity at €150.', 'Give me TR and MR.', 'What is the optimal room price?', 'What is price elasticity at €170?', 'Solve the demand function.']) {
+    const result = answerFreeQuestion('marco', question);
+    assert.equal(result.factId, 'other', question);
+    assert.doesNotMatch(result.answer, /84|1\.85|2\.666|155\.33/);
   }
-  assert.equal(answerFreeQuestion('marta', 'How do I calculate the best staffing plan?').factId, null);
-  assert.equal(answerFreeQuestion('lucia', 'help').factId, null);
-  const wrong = answerFreeQuestion('lucia', 'What can one baker produce?');
-  assert.equal(wrong.factId, null);
-  assert.match(wrong.answer, /Paolo/);
 });
 
-test('student can retrieve required facts from each responsible person', () => {
-  const cases = [
-    ['marco', 'What are the demand curves for groups A, B and C?', 'other'],
-    ['marco', 'Who are the guest groups?', 'comparable'],
-    ['elena', 'What is the room capacity?', 'full'],
-    ['elena', 'Are hotel operating costs available?', 'costs'],
-    ['marta', 'What does the hotel need for breakfast?', 'order'],
-    ['marta', 'What are the labour and ingredient costs?', 'cost'],
-    ['paolo', 'What does one baker produce?', 'one'],
-    ['paolo', 'What do two bakers produce?', 'two'],
-    ['paolo', 'What do three bakers produce?', 'three'],
-    ['sofia', 'What are the wine options and prices?', 'options'],
-    ['sofia', 'What did the tasting panel score?', 'taste'],
-    ['giulia', 'What is the estate reserve stock limit?', 'stock'],
-    ['giulia', 'What is the dinner forecast?', 'forecast']
-  ];
-  for (const [person, question, expected] of cases) assert.equal(answerFreeQuestion(person, question, { nextPeriodGuests: 69 }).factId, expected, `${person}: ${question}`);
+test('greetings and bakery follow-ups are natural without revealing marginal products', () => {
+  assert.match(answerFreeQuestion('marta', 'Hello').answer, /Hello.*Marta/);
+  const result = answerFreeQuestion('paolo', 'And two?', { history: [{ question: 'What can one baker produce?', answer: '40 rolls' }] });
+  assert.equal(result.factId, 'two'); assert.match(result.answer, /60/);
+  assert.doesNotMatch(result.answer, /20 extra/);
+  const third = answerFreeQuestion('paolo', 'And three?', {history:[{question:'What can one baker produce?',answer:'40 rolls'},{question:'And two?',answer:result.answer}]});
+  assert.equal(third.factId, 'three'); assert.match(third.answer, /65/);
 });
 
-test('common paraphrases still retrieve the intended observations', () => {
-  assert.equal(answerFreeQuestion('lucia', 'How much does a room cost per night?').factId, 'price');
-  assert.equal(answerFreeQuestion('lucia', 'How does occupancy change by season?').factId, 'bookings');
-  assert.equal(answerFreeQuestion('marco', 'What is the estimated demand function?').factId, 'other');
-  assert.equal(answerFreeQuestion('marta', 'How many rolls does the hotel need?').factId, 'order');
+test('optional exercise numbers are available, but not purchase totals or decisions', () => {
+  for (const [person, question, expected] of [
+    ['marta', 'What are labour and ingredient costs?', /20.*0\.60/],
+    ['marta', 'Can surplus rolls be resold?', /€0 resale value/],
+    ['paolo', 'What do three bakers produce?', /65/],
+    ['sofia', 'What are the wine prices?', /8.*12/],
+    ['giulia', 'What is the estate stock?', /30/]
+  ]) assert.match(answerFreeQuestion(person, question).answer, expected);
+  assert.doesNotMatch(answerFreeQuestion('sofia', 'Calculate the purchase cost.').answer, /640|880/);
 });
 
-test('concept explanations do not reveal or credit case solutions', () => {
-  const elasticity = answerFreeQuestion('lucia', 'What does elasticity mean?');
-  assert.equal(elasticity.factId, null);
-  assert.match(elasticity.answer, /room requests change/i);
-  const marginal = answerFreeQuestion('paolo', 'What does marginal product mean?');
-  assert.equal(marginal.factId, null);
-  assert.match(marginal.answer, /extra output/i);
-  assert.doesNotMatch(marginal.answer, /20 rolls|5 rolls/i);
+test('broad and vague questions offer topics without numerical evidence', () => {
+  for (const actor of ['lucia', 'marco', 'elena']) for (const question of ['What can you tell me about hotel bookings?', 'Tell me more']) {
+    const reply = answerFreeQuestion(actor, question);
+    assert.equal(reply.factId, null); assert.doesNotMatch(reply.answer, /\d/);
+  }
 });
-
-test('factual equations are allowed and group-specific questions disclose only that curve', () => {
-  const result = answerFreeQuestion('marco', 'What is the equation for group A?');
-  assert.equal(result.factId, 'other');
-  assert.match(result.answer, /2400/);
-  assert.doesNotMatch(result.answer, /2100|1800|−1\.4/);
-  const next = answerFreeQuestion('marco', 'And what about B?');
-  assert.equal(next.factId, 'other');
-  assert.match(next.answer, /2100/);
-  assert.doesNotMatch(next.answer, /2400|1800/);
+test('each hotel actor gives one complete point and refers other observations', () => {
+  const lucia = answerFreeQuestion('lucia', 'What is the room price?');
+  assert.match(lucia.answer, /170.*69/); assert.deepEqual(lucia.factIds, ['price', 'bookings']);
+  assert.match(answerFreeQuestion('marco', 'What are your bookings?').answer, /190.*54/);
+  for (const [actor, colleague, question] of [['lucia', 'Marco', 'What happened at €190?'], ['marco', 'Lucia', 'What happened at €170?']]) {
+    const result = answerFreeQuestion(actor, question); assert.match(result.answer, new RegExp(colleague)); assert.doesNotMatch(result.answer, /\d/);
+  }
+  for (const actor of ['lucia', 'marco']) {
+    const reply = answerFreeQuestion(actor, 'Give me both observations');
+    assert.doesNotMatch(reply.answer, actor === 'lucia' ? /190|54/ : /170|69/);
+  }
 });
-
-test('natural follow-ups, greetings and compound questions retain role boundaries', () => {
-  const followup = answerFreeQuestion('paolo', 'And two?', { history: [{ question: 'What can one baker produce?', answer: 'One baker makes 40 rolls.' }] });
-  assert.equal(followup.factId, 'two');
-  assert.match(followup.answer, /60/);
-  const greeting = answerFreeQuestion('marta', 'Hello');
-  assert.match(greeting.answer, /Hello.*Marta/);
-  assert.equal(greeting.factId, null);
-  const combined = answerFreeQuestion('lucia', 'How many rooms do you have and how does occupancy change by season?');
-  assert.deepEqual(new Set(combined.factIds), new Set(['price', 'bookings']));
-  assert.match(combined.answer, /78/);
-  assert.match(combined.answer, /45%/);
-  assert.equal(answerFreeQuestion('lucia', 'What are the income elasticities?').factId, null);
-  assert.match(answerFreeQuestion('lucia', 'What are the income elasticities?').answer, /Marco/);
+test('actors check a submitted demand function without supplying or correcting it', () => {
+  for (const equation of ['P = 262 - (4/3)Q', 'P(Q)=262-1.3333Q', 'Q = 196.5 - 0.75P']) {
+    const reply = answerFreeQuestion('marco', 'Is my equation '+equation+' correct?');
+    assert.match(reply.answer, /Yes.*\?/); assert.doesNotMatch(reply.answer, /262|196|1\.333|0\.75/);
+  }
+  assert.match(answerFreeQuestion('lucia', 'Is P=260-1.3Q correct?').answer, /does not match/);
+  for (const question of ['Check my revenue: 11730', 'Is my price elasticity -1.85 correct?', 'Verify my MR=262-2.6667Q']) assert.match(answerFreeQuestion('marco', question).answer, /workspace/);
 });
-
-test('actors can disclose the raw evidence for questions 4.1.2 and 4.1.4 without solving them', () => {
-  assert.equal(answerFreeQuestion('marco', 'What income elasticities are given?').factId, 'income');
-  const cross = answerFreeQuestion('marco', 'What do we know about Offers A and B?');
-  assert.equal(cross.factId, 'cross');
-  assert.match(cross.answer, /-3\.3/);
-  assert.doesNotMatch(cross.answer, /Offer A is a substitute|Offer B is a complement/i);
-  const events = answerFreeQuestion('lucia', 'What climate challenges does the case describe?');
-  assert.equal(events.factId, 'events');
-  assert.match(events.answer, /heat.*rain.*hail/);
-});
-
-test('follow-ups preserve the income topic and location questions do not unlock hotel facts', () => {
-  const income = answerFreeQuestion('marco', 'And B?', { history: [{ question: 'What income elasticity does group A have?', answer: 'A: 1.5' }] });
-  assert.equal(income.factId, 'income');
-  assert.match(income.answer, /2\.8/);
-  assert.doesNotMatch(income.answer, /2100|1\.5/);
-  const location = answerFreeQuestion('lucia', 'Where is the hotel located?');
-  assert.equal(location.factId, null);
-  assert.match(location.answer, /Sirmione/);
+test('repeated questions preserve facts and never disclose the second point', () => {
+  const first = answerFreeQuestion('lucia', 'What are your bookings?');
+  const repeated = answerFreeQuestion('lucia', 'What are your bookings?', {history:[{question:'What are your bookings?',answer:first.answer}]});
+  assert.equal(repeated.answer, first.answer); assert.doesNotMatch(repeated.answer,/190|54/);
 });

@@ -1,5 +1,6 @@
 import { SCENARIO } from './config.js';
-import { HOTEL_CASE } from './case-hotel.js';
+import { HOTEL_DEMO } from './hotel-demo.js';
+import { checkStudentDemand } from './demand-check.js';
 
 // Instructor-editable role cards. Keep facts factual: decisions and calculations belong to students.
 // Each entry has an interview milestone id, matching phrases, and a short response.
@@ -7,47 +8,46 @@ import { HOTEL_CASE } from './case-hotel.js';
 export const FREE_AGENTS = {
   lucia: {
     name: 'Lucia', role: 'hotel manager',
-    instruction: 'State the original hotel setting, capacity and seasonality. Do not derive TR, MR, elasticity, a room rate, or profit.',
-    solutionBoundary: 'I can tell you about the hotel and its guests, but the calculations and advice are yours.',
-    scopePrompt: 'I look after the hotel. Would you like to hear about our rooms, our guests through the year, or the changes we are facing?',
+    instruction: 'You know only your own price–quantity observation and the stated conditions. Share that complete point when asked specifically; never reveal another actor’s point or a demand function. Broad questions get an introduction and two topics, not numbers.',
+    solutionBoundary: 'My observation is €170 per room for one night, with 69 rooms requested. You need to derive the demand function yourself; Marco has the other observation.',
+    scopePrompt: 'Ask me about our reference room price, bookings or the conditions behind those figures.',
     concepts: [
-      { match: [/what (is|does).*demand mean/, /define demand/], say: 'Demand here means the number of room nights guests request at a given price.' },
-      { match: [/what (is|does).*elasticity mean/, /define elasticity/], say: 'Price elasticity describes how strongly room requests change when the room price changes.' }
+      { match: [/what (is|does).*demand mean/, /define demand/], say: 'Demand means the rooms guests request at a given nightly price. Actual sales are also limited by our capacity.' },
+      { match: [/what (is|does).*elasticity mean/, /define elasticity/], say: 'Price elasticity describes the percentage response in room requests to a percentage price change, holding other conditions fixed.' }
     ],
     facts: [
-      { id: 'events', match: [/climate/, /weather/, /protest/, /demonstration/, /airbnb/, /key box/, /keybox/, /regulat/, /challenges?/, /renovat/], say: () => 'We invested in a four-star standard, so both comfort and costs matter. The case also describes extreme weather, local concerns about tourism and restrictions on private rentals. We do not yet know how strongly those will affect our guests.' },
-      { id: 'bookings', match: [/bookings?/, /occupan/, /season/, /how many.*(book|guest)/, /month/, /may/, /business/, /busy/], say: () => 'Our season makes a big difference. We close in January for maintenance; the May example uses 45% occupancy across 31 days.' },
-      { id: 'price', match: [/current.*(price|rate)/, /(price|rate).*(now|currently|charge)/, /room price/, /(price|rate|charge|cost).*(room|night)/, /(room|night).*(price|rate|cost)/, /what.*charge/, /how many rooms/, /currency/, /unit/, /where.*(hotel|located)/, /tell me about.*(hotel|place)/], say: () => `We have ${HOTEL_CASE.rooms} rooms here in Sirmione, on Lake Garda. The exercise quotes prices in DKK and demand in room-nights. It does not specify one current room rate.` },
-      { id: 'supply', match: [/breakfast/, /bakery/, /bread supply/], say: () => 'Breakfast needs a reliable bread order. Marta at the bakery knows its production plans.' }
+      { id: 'price', match: [/\bprice\b/, /\brate\b/, /data point/, /observation/, /reference.*price/, /current.*(price|rate)/, /room.*(price|rate|cost)/, /(price|rate|charge|cost).*room/, /what.*charge/, /currency/, /unit/, /170/], say: () => 'At €170 per room for one night, we recorded 69 rooms requested. Marco can tell you about a separate observation.' },
+      { id: 'bookings', match: [/booking/, /occupan/, /request/, /how many.*room/, /reference.*observation/, /business/, /busy/], say: () => 'At €170 per room for one night, we recorded 69 rooms requested. Marco can tell you about a separate observation.' },
+      { id: 'events', match: [/climate/, /weather/, /season/, /competitor/, /change/, /challenges?/], say: () => 'The demonstration holds season, booking window, competitor prices and service conditions fixed. Changes in those could affect demand, but no numerical effect has been supplied.' },
+      { id: 'supply', match: [/breakfast/, /bakery/, /bread/], say: () => 'Marta handles the optional breakfast exercise. Its guest counts and euro figures are separate assumptions, independent of this room-pricing demonstration.' }
     ]
   },
   marco: {
     name: 'Marco', role: 'reservations lead',
-    instruction: 'Explain the case guest groups and quote their estimated inverse demand curves. Never derive TR, MR or elasticity.',
-    solutionBoundary: 'I can show you a group demand estimate, but you need to work out TR, MR and sensitivity.',
-    scopePrompt: 'Ask me about the guest groups or a particular demand curve.',
+    instruction: 'You know only your own comparison point and comparable conditions. Never reveal Lucia’s point or a demand function. Students derive the function themselves.',
+    solutionBoundary: 'My observation is €190 per room for one night, with 54 rooms requested. You need to derive the demand function yourself; Lucia has the other observation.',
+    scopePrompt: 'I look after reservations. You can ask me about our comparison price and bookings, or the conditions behind that observation.',
     concepts: [
-      { match: [/what (is|does).*marginal revenue mean/, /define marginal revenue/], say: 'Marginal revenue is the change in total revenue from one more room sold. You need the observations to derive it for this case.' }
+      { match: [/what (is|does).*marginal revenue mean/, /define marginal revenue/], say: 'Marginal revenue means the change in total revenue from an additional room sold. You need to derive the function yourself.' }
     ],
     facts: [
-      { id: 'income', match: [/income/, /earnings/, /disposable/], say: () => 'Table 3 estimates income elasticities of 1.5 for group A, 2.8 for B and 2.4 for C. Those describe demand responses to income, rather than our room-price response.' },
-      { id: 'cross', match: [/cross price/, /offer [ab]/, /offers?/, /related.*price/], say: () => 'For Offer A, Table 3 gives 1.2, 1.5 and 2.8 for groups A, B and C. For Offer B, it gives −1.2, −3.3 and −2.4. The table leaves you to interpret what those offers might be.' },
-      { id: 'other', match: [/demand/, /curve/, /function/, /equation/, /group a/, /group b/, /group c/, /table 3/], say: () => 'The estimated inverse demand curves are A: P = 2400 − 0.05Q; B: P = 2100 − 0.07Q; C: P = 1800 − 0.06Q. P is in DKK and Q is room-nights.' },
-      { id: 'comparable', match: [/guest groups?/, /segments?/, /individual/, /famil/, /tour/, /who (are|is)/, /who.*stay/, /types.*guest/, /share/], say: () => 'A is individual travelers without children (about 50% of high-season stays); B is group travelers (30%); C is families with children (10%). The remaining 10% is mixed.' },
-      { id: 'changes', match: [/shift demand/, /affect demand/, /festival/, /competitor/, /season/], say: () => 'Other hotels, apartments, campsites and private rentals compete for our guests. Booking timing and the season matter too; Lucia can tell you about the wider challenges described in the case.' }
+      { id: 'other', match: [/comparison/, /different price/, /other price/, /190/, /observation/, /price/, /booking/, /request/, /occupan/], say: () => 'At €190 per room for one night, we recorded 54 rooms requested. Lucia has a separate observation for you.' },
+      { id: 'comparable', match: [/comparable/, /conditions?/, /same/, /booking window/, /season/], say: () => HOTEL_DEMO.conditions },
+      { id: 'income', match: [/income/, /earnings/], say: () => 'I do not have income-elasticity estimates for this hotel.' },
+      { id: 'cross', match: [/cross price/, /offer [ab]/, /offers?/], say: () => 'I do not have cross-price elasticities or numerical data for Offers A and B.' }
     ]
   },
   elena: {
     name: 'Elena', role: 'operations manager',
-    instruction: 'State original hotel capacity and missing room cost information. Never claim a profit-maximizing price.',
-    solutionBoundary: 'I can describe capacity and missing costs, but I cannot choose your room rate.',
-    scopePrompt: 'Ask me about room capacity or available cost information.',
+    instruction: 'Share the 80-room nightly capacity, its sales constraint and missing costs. Never calculate capped sales, revenue, profit or an optimum.',
+    solutionBoundary: 'I can explain the capacity limit and what cost data are missing; the sales calculations and decisions are yours.',
+    scopePrompt: 'Ask me about room capacity or the operating-cost information we have.',
     concepts: [
-      { match: [/difference.*(revenue|profit)/, /what (is|does).*profit mean/], say: 'Revenue is money received. Profit also subtracts costs, and we do not have room operating costs.' }
+      { match: [/difference.*(revenue|profit)/, /what (is|does).*profit mean/], say: 'Revenue is money received from sales. Profit also subtracts operating costs, which are missing from this demonstration.' }
     ],
     facts: [
-      { id: 'full', match: [/capacity/, /maximum.*rooms?/, /how many rooms/, /fully booked/, /more (guests|requests|rooms)/], say: () => `The original hotel has ${HOTEL_CASE.rooms} rooms. That is a nightly limit; Table 3 demand is in room-nights over a period.` },
-      { id: 'costs', match: [/costs?/, /profit/, /expenses?/, /margin/], say: () => 'Renovation and a higher service standard bring costs with them. We do not have a room-level cost function in these materials, so room revenue alone cannot tell us our profit.' }
+      { id: 'full', match: [/capacity/, /maximum.*rooms?/, /how many rooms/, /fully booked/, /sales? limit/, /more.*requests/], say: () => 'We have 80 rooms available for one night. Requested rooms can exceed that, but actual room sales cannot.' },
+      { id: 'costs', match: [/costs?/, /profit/, /expenses?/, /margin/], say: () => HOTEL_DEMO.costStatus }
     ]
   },
   marta: {
@@ -57,8 +57,9 @@ export const FREE_AGENTS = {
     scopePrompt: 'Ask me about the hotel order or bakery costs.',
     concepts: [],
     facts: [
-      { id: 'order', match: [/order/, /hotel.*(need|guest|roll|breakfast)/, /rolls?.*(hotel|need)/, /how many.*(guest|breakfast)/, /breakfast.*(need|revenue)/], say: () => `The hotel expects ${SCENARIO.breakfast.guests} breakfast guests. Each needs one roll. It receives €${SCENARIO.breakfast.revenuePerBreakfast} per breakfast served.` },
-      { id: 'cost', match: [/cost/, /wage/, /labou?r/, /ingredient/, /pay.*baker/], say: () => 'Labour is €20 per baker. Ingredients are €0.60 per roll produced.' }
+      { id: 'order', match: [/order/, /hotel.*(need|guest|roll|breakfast)/, /rolls?.*(hotel|need)/, /how many.*(guest|breakfast)/, /breakfast.*(need|revenue)/], say: () => `The order is one roll for each of ${SCENARIO.breakfast.guests} breakfast guests. Our bread-service contract pays €${SCENARIO.breakfast.revenuePerBreakfast} per guest served; that is not the price of a full hotel breakfast.` },
+      { id: 'cost', match: [/cost/, /wage/, /labou?r/, /ingredient/, /pay.*baker/], say: () => 'We schedule a one-hour breakfast batch. Labour is €20 per baker for that hour, and ingredients are €0.60 per roll produced.' },
+      { id: 'surplus', match: [/leftover/, /surplus/, /resell/, /resale/, /waste/], say: () => 'Surplus rolls have €0 resale value for this bread-service contract.' }
     ]
   },
   paolo: {
@@ -70,9 +71,9 @@ export const FREE_AGENTS = {
       { match: [/what (is|does).*marginal product mean/, /define marginal product/], say: 'Marginal product is the extra output from adding one worker while the oven stays fixed.' }
     ],
     facts: [
-      { id: 'one', match: [/one baker/, /1 baker/, /first baker/, /single baker/], say: () => 'One baker makes 40 rolls in a shift.' },
-      { id: 'two', match: [/two bakers/, /2 bakers/, /second baker/], say: () => 'Two bakers together make 60 rolls in a shift.' },
-      { id: 'three', match: [/three bakers/, /3 bakers/, /third baker/], say: () => 'Three bakers together make 65 rolls in a shift.' },
+      { id: 'one', match: [/one baker/, /1 baker/, /first baker/, /single baker/], say: () => 'One baker makes 40 rolls in our one-hour breakfast batch.' },
+      { id: 'two', match: [/two bakers/, /2 bakers/, /second baker/], say: () => 'Two bakers together make 60 rolls in our one-hour breakfast batch.' },
+      { id: 'three', match: [/three bakers/, /3 bakers/, /third baker/], say: () => 'Three bakers together make 65 rolls in our one-hour breakfast batch.' },
       { id: 'oven', match: [/oven/, /machine/, /fixed input/, /bottleneck/], say: () => 'We have one oven. Its size does not change when we hire more bakers.' }
     ]
   },
@@ -80,10 +81,10 @@ export const FREE_AGENTS = {
     name: 'Sofia', role: 'winemaker',
     instruction: 'State wine options and tasting evidence. Never recommend an order or infer hotel profit from taste.',
     solutionBoundary: 'I can describe wines and tasting evidence; the purchase decision is yours.',
-    scopePrompt: 'Ask me about wine prices, tasting, or investment evidence.',
+    scopePrompt: 'Ask me about wine options or the tasting evidence.',
     concepts: [],
     facts: [
-      { id: 'options', match: [/wine.*(option|choice|price|cost|buy)/, /(option|choice|price|cost).*(wine|bottle)/, /house wine/, /estate reserve/], say: () => 'House wine costs €8 a bottle; estate reserve costs €12 a bottle.' },
+      { id: 'options', match: [/wine.*(option|choice|price|cost|buy)/, /(option|choice|price|cost).*(wine|bottle)/, /house wine/, /estate reserve/, /mixed plan/], say: () => 'House wine costs €8 a bottle; estate reserve costs €12 a bottle. The mixed plan uses available estate stock first, then house wine for the remaining order.' },
       { id: 'taste', match: [/tast/, /score/, /prefer/, /quality/, /panel/], say: () => 'A small panel scored house wine 7/10 and estate reserve 9/10. That does not measure hotel profit.' },
       { id: 'investment', match: [/invest/, /build.*winery/, /own.*winery/, /npv/], say: () => 'An investment assessment would need upfront cost, future cash flows, a discount rate, and risk.' }
     ]
@@ -97,73 +98,70 @@ export const FREE_AGENTS = {
       { match: [/what (is|does).*forecast mean/, /define forecast/], say: 'A forecast is an estimate for the next period, not a guaranteed sale.' }
     ],
     facts: [
-      { id: 'stock', match: [/stock/, /available/, /limit/, /supply/, /how many.*(reserve|estate|bottle)/], say: () => 'We have at most 60 estate reserve bottles this period. House wine can cover the rest.' },
-      { id: 'forecast', match: [/forecast/, /dinner/, /how many.*(guest|need)/, /room.*(sold|guest)/], say: context => `Plan for ${context.nextPeriodGuests} room guests and ${SCENARIO.wine.outsideDiners} outside diners. Assume one bottle per dinner.` }
+      { id: 'stock', match: [/stock/, /available/, /limit/, /supply/, /how many.*(reserve|estate|bottle)/], say: () => `We have at most ${SCENARIO.wine.estateLimit} estate reserve bottles this period. House wine can cover the rest.` },
+      { id: 'forecast', match: [/forecast/, /dinner/, /how many.*(guest|need)/, /room.*(sold|guest)/], say: context => `Our separate dinner forecast is ${context.nextPeriodGuests} resident diners and ${SCENARIO.wine.outsideDiners} outside diners. For this illustrative order, assume one 750 ml bottle shared by two adult diners choosing wine.` }
     ]
   }
 };
 
-export const isSolutionRequest = text => /\b(solve|solutions?|calculate|compute|derive|optimal|optimum|maximi[sz]e|best (price|rate|plan|choice|number)|which (price|rate|plan|choice|number) should|do the math|tell me what to choose|give me (the |all )?(answers?|results?)|what is the answer)\b/i.test(text);
+export function isSolutionRequest(text) {
+  const input = String(text).toLowerCase().replace(/[’‘]/g, "'")
+    .replace(/\b(?:do not|don't|dont|never|without)\s+(?:please\s+)?(?:solve|solving|calculate|calculating|compute|computing|derive|deriving|differentiate|differentiating|rearrange|rearranging|invert|inverting)\b/g, '')
+    .replace(/\b(?:i|we|students)\s+(?:need|want|have)\s+to\s+(?:calculate|compute|derive|solve)\b[^;?.]*[;?.]/g, '');
+  if (/\b(solve|solutions?|calculate|compute|derive|differentiate|rearrange|invert|evaluate|optimal|optimum|maximi[sz](?:e|ing)|best (price|rate|plan|choice|number)|which (price|rate|plan|choice|number) should|do the math|tell me what to choose|give me (the |all )?(answers?|results?)|what is the answer)\b/.test(input)) return true;
+  if (/\b(?:what is|what are|give me|tell me)\b.*\b(?:tr|mr|total revenue|marginal revenue)\b/.test(input) && !/mean|concept|define|definition|given|provided|supplied/.test(input)) return true;
+  if (/\b(?:least|most)\s+(?:price[- ]?)?sensitive\b/.test(input)) return true;
+  if (/\b(?:quantity|room[- ]nights? demanded|rooms demanded)\b.*\b(?:at|when|if)\b/.test(input)) return true;
+  return /\b(?:what is|what are|tell me|give me)\b.*\b(?:price|point)\s+elasticit(?:y|ies)\b/.test(input) && !/cross[- ]price|income|\b(?:mean|concept|definition|define|given|provided|supplied)\b/.test(input);
+}
 const normalize = text => String(text).toLowerCase().replace(/[^a-z0-9€]+/g, ' ').trim();
 const relevant = (fact, text) => fact.match.some(pattern => pattern.test(text));
-const requestedGroups = input => {
-  const selected = [...input.matchAll(/\b(?:group|about|and) ([abc])\b/g)].map(match => match[1].toUpperCase());
-  return /\bgroups\b|\ball\b|\bthree\b/.test(input) || !selected.length ? HOTEL_CASE.groups : HOTEL_CASE.groups.filter(group => selected.includes(group.id));
+export const isBroadQuestion = text => {
+  const input=normalize(text);
+  return input.length<5 || /^(help|what|why|how|tell me|tell me more|i don t know)$/.test(input) || /^(what can you tell me|tell me about|what do you know about)/.test(input);
 };
 
 export function factReply(personId, fact, question, context = {}) {
   const input = normalize(question);
-  if (personId === 'marco' && fact.id === 'other') {
-    const groups = requestedGroups(input);
-    return `Our estimate${groups.length > 1 ? 's are' : ' is'} ${groups.map(group => `${group.id}: P = ${group.intercept} − ${Math.abs(group.slope)}Q`).join('; ')}. P is in DKK and Q is room-nights over the case period, rather than rooms on one night.`;
-  }
-  if (personId === 'marco' && fact.id === 'income') return `The income-elasticity estimate${requestedGroups(input).length > 1 ? 's are' : ' is'} ${requestedGroups(input).map(group => `${group.id}: ${group.income}`).join('; ')}. That concerns changes in guests’ income rather than our room price.`;
-  if (personId === 'marco' && fact.id === 'cross') {
-    const offers = /offer a/.test(input) && !/offer b|and b/.test(input) ? ['A'] : /offer b/.test(input) && !/offer a/.test(input) ? ['B'] : ['A', 'B'];
-    return offers.map(offer => `For Offer ${offer}, our cross-price estimates are ${requestedGroups(input).map(group => `${group.id}: ${group[`cross${offer}`]}`).join('; ')}.`).join(' ');
-  }
-  if (personId === 'lucia' && fact.id === 'events') {
-    if (/climate|weather/.test(input)) return 'The director is concerned about extreme heat, heavy rain and hail. Guests may choose a different destination or time of year, but we cannot attach a precise demand effect to that from the information here.';
-    if (/airbnb|key box|keybox|regulat/.test(input)) return 'The case describes restrictions on private-rental check-in arrangements. The director expects those to make competing rentals harder to operate; we do not have an estimate of the effect on our bookings.';
-    if (/protest|demonstration/.test(input)) return 'The case describes local concerns about tourism and rising housing costs. The director worries that guests who feel unwelcome may go elsewhere, while employees also face higher living costs.';
-    if (/renovat/.test(input)) return 'We moved from a three-star to a four-star standard after extensive renovation. Management expected higher room prices and spending on other services, alongside higher costs.';
-  }
-  if (personId === 'lucia' && fact.id === 'price') {
-    if (/how many rooms|capacity/.test(input) && !/unit|currency/.test(input)) return `We have ${HOTEL_CASE.rooms} rooms, including two small singles and six family rooms. Elena looks after how that capacity is used.`;
-    if (/where|located/.test(input)) return 'We are in Sirmione, on the southern part of Lake Garda in northern Italy.';
-  }
-  return fact.say({ nextPeriodGuests: SCENARIO.breakfast.guests, ...context });
+  return fact.say({ ...context, nextPeriodGuests: SCENARIO.breakfast.guests });
 }
 
 export function answerFreeQuestion(personId, text, context = {}) {
   const agent = FREE_AGENTS[personId];
   if (!agent) return { answer: 'I cannot help with that topic.', factId: null };
   let input = normalize(text), followupFactId = null;
+  const result = (answer, facts = []) => ({ answer, factId: facts[0] || null, factIds: facts });
+  const pointIds = personId === 'lucia' ? ['price', 'bookings'] : ['other'];
+  const point = ['lucia', 'marco'].includes(personId);
+  const submitted = checkStudentDemand(text);
+  if (submitted !== null) return { ...result(submitted ? 'Yes, your demand function matches the two observations. What would need to stay the same for it to describe bookings on another night?' : 'That function does not match both observations. Check your work against the figures you collected.'), immediate: true };
   if (/^(hi|hello|hey)( there)?$/.test(input)) return { answer: `Hello! I'm ${agent.name}, the ${agent.role}. ${agent.scopePrompt}`, factId: null };
   if (/^(thanks|thank you|thank you very much)$/.test(input)) return { answer: 'You’re welcome. Let me know what else you need.', factId: null };
-  if (input.length < 5 || /^(help|what|why|how|tell me|i don t know)$/.test(input)) {
+  if (isBroadQuestion(text)) {
     return { answer: agent.scopePrompt, factId: null };
   }
-  if (isSolutionRequest(input)) {
-    return { answer: agent.solutionBoundary, factId: null };
+  const suppliedObservation = !/calculate|compute|derive|solve|evaluate/i.test(text) && /\b(?:170|190)\b/.test(input) && /rooms?|booking|observation|request/.test(input);
+  if ((isSolutionRequest(text) && !suppliedObservation) || /demand (function|equation|curve)|inverse demand|\b(slope|intercept)\b/.test(input)) {
+    if (/check|correct|right|verify/.test(input) && /revenue|elasticity|\bmr\b|\btr\b/.test(input)) return { ...result('Please check that calculation in the student workspace.'), immediate: true };
+    return { ...result(agent.solutionBoundary, point ? pointIds : []), immediate: true };
   }
+  if (point && /\bboth\b|\btwo (points|observations)\b/.test(input)) return result(agent.solutionBoundary, pointIds);
+  if (point && ((personId === 'lucia' && /\b190\b/.test(input)) || (personId === 'marco' && /\b170\b/.test(input)))) return result(`Ask ${personId === 'lucia' ? 'Marco' : 'Lucia'} for that observation. I can share my own price and bookings.`);
+  if (/check|correct|verify|is .*right/.test(input) && /revenue|elasticity|\bmr\b|\btr\b/.test(input)) return { ...result('Please check that calculation in the student workspace.'), immediate: true };
   const concept = agent.concepts.find(item => relevant(item, input));
-  if (concept) return { answer: concept.say, factId: null };
+  if (concept) return result('I can share the case information I have. Please use the student workspace for mathematical help.');
+  if (personId !== 'elena' && /operating costs?|cost function|room level costs?/.test(input)) return { answer: 'Elena, our operations manager, knows what cost information is available. Ask her about that.', factId: null };
   if (personId === 'paolo' && /^(and|what about|how about) (one|two|three|1|2|3)\b/.test(input)) {
-    const previous = context.history?.at(-1)?.question || '';
-    if (agent.facts.some(fact => relevant(fact, normalize(previous)))) input += ' bakers';
+    if (context.history?.some(turn => agent.facts.some(fact => relevant(fact, normalize(turn.question))))) input += ' bakers';
   }
-  if (personId === 'marco' && /^(and )?(what |how )?about [abc]$|^and [abc]$/.test(input)) {
-    const previous = normalize(context.history?.at(-1)?.question || '');
-    followupFactId = /income/.test(previous) ? 'income' : /offer|cross price/.test(previous) ? 'cross' : /who|guest groups/.test(previous) ? 'comparable' : 'other';
-    input += ` group ${input.at(-1)}`;
-  }
+  if (/^(and|what about|how about) (the )?(price|bookings|number|conditions)\b/.test(input) && !context.history?.length) return result(agent.scopePrompt);
   const matches = agent.facts.filter(item => followupFactId ? item.id === followupFactId : relevant(item, input));
-  if (personId === 'marco' && /who|which people|what.*groups.*mean/.test(input)) matches.sort((left, right) => Number(right.id === 'comparable') - Number(left.id === 'comparable'));
+  if (personId === 'marco') matches.sort((a, b) => Number(a.id === 'other') - Number(b.id === 'other'));
+  if (personId === 'lucia' && /booking|request|occupan|how many/.test(input)) matches.sort((left, right) => Number(right.id === 'bookings') - Number(left.id === 'bookings'));
   const facts = matches.slice(0, /\band\b|\bboth\b/.test(input) ? 2 : 1);
   if (facts.length) {
-    const credited = facts.filter(fact => !(personId === 'lucia' && fact.id === 'price' && /where|located/.test(input)));
-    return { answer: facts.map(fact => factReply(personId, fact, input, context)).join(' '), factId: credited[0]?.id || null, factIds: credited.map(fact => fact.id) };
+    const credited = personId === 'lucia' && facts.some(fact => ['price', 'bookings'].includes(fact.id)) ? ['price', 'bookings', ...facts.filter(fact => !['price', 'bookings'].includes(fact.id)).map(fact => fact.id)] : facts.map(fact => fact.id);
+    return result([...new Set(facts.map(fact => factReply(personId, fact, input, context)))].join(' '), credited);
   }
   const other = Object.values(FREE_AGENTS).find(candidate => candidate !== agent && candidate.facts.some(item => relevant(item, input)));
   if (other) return { answer: `${other.name}, the ${other.role}, knows about that. Ask them directly.`, factId: null };

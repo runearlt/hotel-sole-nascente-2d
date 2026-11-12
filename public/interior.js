@@ -1,9 +1,9 @@
 const WIDTH = 900, HEIGHT = 540;
 
 export const HOTEL_STAFF = {
-  lucia: { name: 'Lucia', role: 'Hotel manager', x: 190, y: 255, color: '#355c70', questions: ['price', 'bookings', 'events', 'supply'], introduction: 'Welcome to Sole Nascente. I’m Lucia. What would you like to know about the hotel?' },
-  marco: { name: 'Marco', role: 'Reservations lead', x: 468, y: 177, color: '#47765d', questions: ['other', 'comparable', 'income', 'cross', 'changes'], introduction: 'Hello, I’m Marco. I look after reservations and keep track of the different guests who stay with us.' },
-  elena: { name: 'Elena', role: 'Operations manager', x: 749, y: 385, color: '#a36b45', questions: ['full', 'costs'], introduction: 'We have 78 rooms, but capacity and revenue alone do not settle a pricing decision.' }
+  lucia: { name: 'Lucia', role: 'Hotel manager · Reference price and bookings', x: 190, y: 255, color: '#355c70', introduction: 'Welcome to Sole Nascente. I’m Lucia, the hotel manager. You can ask me about our reference price and bookings, or the conditions behind them.' },
+  marco: { name: 'Marco', role: 'Reservations lead · Comparison bookings and conditions', x: 468, y: 177, color: '#47765d', introduction: 'Hello, I’m Marco, the reservations lead. You can ask me about our comparison observation or the booking conditions.' },
+  elena: { name: 'Elena', role: 'Operations manager · Capacity and costs', x: 749, y: 385, color: '#a36b45', introduction: 'I’m Elena; I look after hotel operations. You can ask me about room capacity or the cost information available.' }
 };
 
 export const ROOM_STAFF = {

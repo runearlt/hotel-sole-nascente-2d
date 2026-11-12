@@ -1,51 +1,31 @@
-# Case and mathematics review
+# EUR demonstration mathematics and disclosure review
 
-Reviewed on 11 November 2026 against the supplied `1. EN - Case.doc`, especially Table 3 and questions 4.1.1–4.1.4. This file records developer and instructor checks; it is not served to students or included in actor prompts.
+On 12 November 2026 the instructor explicitly chose to replace the original case with the linked demonstration at https://hotel-sole-nascente-2d.onrender.com/. This review supersedes the earlier 78-room DKK audit. It is developer/instructor material, not an actor prompt or a public student asset.
 
-## Development website findings
+## Supplied information actors may disclose
 
-The deployed development site still serves an illustrative scenario with 80 rooms, euro reference prices of 170 and 190, and inverse demand `P = 262 − (4/3)Q`. Its calculations belong to that demonstration, not the supplied hotel case. The verified remote `development` revision was `9b07f64c2f53e1eb99c331986534eca22aaf5f8f`.
+- 80 rooms available for one night, prices in EUR.
+- Reference observation: price €170, requested rooms 69.
+- Comparison observation: price €190, requested rooms 54.
+- Same season, booking window, competitor prices and service conditions.
+- Operating and room-level costs are missing. No income or cross-price elasticities are given.
 
-The prepared replacement uses the original 78-room hotel in Sirmione on Lake Garda. Table 3 prices use DKK and quantities refer to customer-group room-nights. The group demand estimates must not be capped at nightly physical room capacity without a matching period. The case does not supply a hotel cost function, so the game must not claim to calculate a profit-maximizing nightly rate.
+Lucia provides the reference observation, Marco the comparison and conditions, and Elena capacity and missing-cost information. The raw observations are supplied facts even though the model also reproduces them. Requests for quantities at other prices require student calculation.
 
-## Independent numerical checks
+## Independent calculation checks
 
-For inverse demand `P = a + bQ`, use `Q = (P − a)/b` and `dQ/dP = 1/b`. The inverse-demand slope is not the direct-demand derivative.
+The student must derive inverse demand `P(Q) = 262 − (4/3)Q`. Direct demand is `Qd(P) = 196.5 − 0.75P`. At €170 demand is 69; at €190 it is 54. Uncapped total revenue is `TR(Q) = 262Q − (4/3)Q²`; uncapped marginal revenue is `MR(Q) = 262 − (8/3)Q`.
 
-| Group | Inverse demand | Q at DKK 1,400 | dQ/dP | Point price elasticity |
-| --- | --- | ---: | ---: | ---: |
-| A | P = 2400 − 0.05Q | 20,000 | −20 | −1.40 |
-| B | P = 2100 − 0.07Q | 10,000 | −14.285714… | −2.00 |
-| C | P = 1800 − 0.06Q | 6,666.666667… | −16.666667… | −3.50 |
+Point price elasticity of requested rooms at €170 is `−0.75 × 170 / 69 = −1.847826…`, accepted as −1.85 to two decimal places. Students must also provide an explanation and assumptions.
 
-Elasticity is `(dQ/dP) × P/Q`. Group A has the smallest absolute elasticity at this price. All three groups have elastic demand at this price; least sensitive does not mean inelastic. The exercise now requires two-decimal accuracy and a written explanation and assumptions, rather than numbers alone.
+Actual sales are `min(Qd(P), 80)`. At €150, 84 rooms are requested but only 80 can be sold, giving €12,000 room revenue rather than €12,600. At €170 revenue is €11,730; at €190 it is €10,260. Fractional demand is permitted in the continuous teaching model.
 
-Supporting group A revenue work is `TR(Q) = 2400Q − 0.05Q²` and `MR(Q) = 2400 − 0.10Q`. This is supporting practice, not a separately numbered question in the supplied case. Zero, missing, wrong-sign and nearby incorrect coefficients are rejected.
+The capacity boundary is approximately €155.333333. The uncapped revenue-maximizing quantity would be 98.25 rooms, exceeding capacity. With the 80-room limit, maximum room revenue occurs at that capacity boundary. Neither result establishes maximum profit: operating costs are unknown. Uncapped MR must not be described as marginal revenue of capacity-capped sales.
 
-## Interpretation and modeling
+## Student workflow and safeguards
 
-- Income elasticities 1.5, 2.8 and 2.4 indicate positive, more-than-proportional responses to income, with other factors fixed. These are elasticities, not coefficients to copy into a linear demand equation.
-- Positive cross-price elasticities for Offer A are consistent with substitutes; negative ones for Offer B are consistent with complements. Possible product examples are interpretations, not uniquely identified facts.
-- A model such as `Q = α + βP + γI + δPs + θPk` should normally have `β < 0`, `γ > 0`, `δ > 0`, `θ < 0` under the specified assumptions. Coefficient magnitudes require defined units and estimation data.
-- Rental restrictions, weather, local opposition to tourism and changing incomes are case evidence to discuss. A changed price or a baseline demand shift does not by itself prove that the Ps or Pk sensitivity coefficients changed. Students must explain mechanisms and uncertainty.
-- Written reasoning is stored for instructor review. Character counts and selected signs cannot certify the quality of an explanation.
+Interview staff, correctly derive inverse demand from the two observations, derive TR/MR, calculate elasticity, then predict requested rooms, sold rooms and revenue for a chosen rate. Only checked arithmetic and a saved justification complete the main hotel route. Bakery, wine and street exercises remain optional. Previous DKK hotel work is archived rather than mixed into active EUR conversations.
 
-## Optional extensions
+Actors never supply demand equations, coefficients, worked quantities, elasticities, revenue functions or decisions. They may confirm a student-supplied demand function and ask a reflective question; they never restate or correct it. Numerical matching alone is not a semantic guarantee, so model replies also receive equation and teaching-boundary checks. Tests include equation requests including “do not solve,” submitted-function checking, solution requests, missing data, wrong-role routing and mocked model violations.
 
-The bakery and wine tasks are separate illustrative euro exercises. Their data must not be described as original-case observations or inferred from Table 3.
-
-Bakery order costs are €44, €76 and €99 for one, two and three bakers; contract contributions are €76, €104 and €81. The third plan incurs ingredient costs on all 65 rolls, although only 60 guests can be served.
-
-Wine uses 60 resident dinner guests plus 20 outside diners, independently of hotel demand calculations. The default forecast is now consistently 80 dinners. House-only purchasing costs €640; a mix of 60 estate and 20 house bottles costs €880. Tasting scores do not establish willingness to pay or a profit effect.
-
-## Actor delivery
-
-Actors now share the relevant approved facts through the same fact source in Guided and free-question modes. Factual requests for equations are distinguished from requests for worked solutions. A group-specific demand question returns that group's curve; brief follow-ups, greetings and two-part factual questions are supported. Income, cross-price and case-event evidence can be requested from the responsible hotel staff.
-
-When an API is configured, each reply is grounded in the approved content selected for that turn and the character's voice. Client-supplied prior answers are not treated as case evidence. Incomplete replies, numerical inventions, omitted required quantities and common worked solutions fall back to approved responses. These checks are not a guarantee against every possible semantic error; live model quality still requires a pilot.
-
-With no API key, conversations use deterministic, conversational replies and do not incur model charges. No live paid model calls were used for verification.
-
-## Release status
-
-The reviewed release is published on `open-version-api` (Open version API). The Render service must deploy that branch to receive these changes; publishing a GitHub branch alone does not update an existing service tracking `development`. The site can run the local conversational fallback as static files; `/api/actor` requires a Node web service using `npm ci --omit=dev` and `npm start`. The Blueprint selects the free plan. An API key is configured separately as a server secret.
+The bakery uses a one-hour batch with costs €44/€76/€99 and bread-service contract contributions €76/€104/€81. Labour is €20 per baker-hour; €3 is contract revenue per guest served, not the full hotel breakfast price. Wine assumes an independent forecast of 80 adult diners choosing wine and one shared 750 ml bottle per two diners: 40 bottles. House-only costs €320 and a 30-estate/10-house mix costs €440. Estate stock is 30 bottles. Actors give component data, not these worked totals or purchasing advice.

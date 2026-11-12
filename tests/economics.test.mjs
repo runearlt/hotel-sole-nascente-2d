@@ -11,8 +11,8 @@ test('optional bakery contribution counts only served guests and costs all produ
   assert.deepEqual(plans.map(plan => plan.leftover), [0, 0, 5]);
 });
 
-test('optional wine forecast and purchasing agree on 80 dinners and a 60-bottle estate limit', () => {
+test('optional wine forecast and purchasing agree on 80 diners sharing 40 bottles with a 30-bottle estate limit', () => {
   assert.equal(SCENARIO.wine.dinnerGuests, SCENARIO.breakfast.guests + SCENARIO.wine.outsideDiners);
-  assert.deepEqual(wineOutcome('house'), { choice: 'house', bottles: 80, estate: 0, house: 80, cost: 640 });
-  assert.deepEqual(wineOutcome('mixed'), { choice: 'mixed', bottles: 80, estate: 60, house: 20, cost: 880 });
+  assert.deepEqual(wineOutcome('house'), { choice: 'house', bottles: 40, estate: 0, house: 40, cost: 320 });
+  assert.deepEqual(wineOutcome('mixed'), { choice: 'mixed', bottles: 40, estate: 30, house: 10, cost: 440 });
 });

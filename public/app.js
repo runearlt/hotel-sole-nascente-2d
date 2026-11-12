@@ -2,15 +2,15 @@ import { SCENARIO, ACTORS } from './config.js';
 import { bakeryOutcome, wineOutcome, eur, round } from './economics.js';
 import { Town, STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
 import { BusinessInterior, ROOM_STAFF } from './interior.js';
-import { answerFreeQuestion, FREE_AGENTS, factReply } from './free-agents.js';
-import { blankCaseHotel, caseHotelTask, evaluateCaseHotel, caseHotelComplete, caseHotelStage, dkk } from './case-hotel.js';
+import { answerFreeQuestion, FREE_AGENTS } from './free-agents.js';
+import { blankCaseHotel, caseHotelTask, evaluateCaseHotel, caseHotelComplete, caseHotelStage } from './case-hotel.js';
 
 const KEY = 'sole-bay-simulation-v1';
 const main = document.querySelector('#main');
 const ROOM_IDS = ['hotel', 'bakery', 'winery'];
 const emptyScratch = () => ({ left: '', operator: '+', right: '', notes: '' });
 const blank = () => ({
-  mode: null, view: 'town', actor: null, overlay: null, mapVersion: 2, caseVersion: 1, player: { x: 500, y: 250, color: '#477f9a' },
+  mode: null, view: 'town', actor: null, overlay: null, mapVersion: 2, caseVersion: 3, extensionVersion: 2, player: { x: 500, y: 250, color: '#477f9a' },
   hotelPlayer: { x: 450, y: 456, color: '#477f9a' }, bakeryPlayer: { x: 450, y: 480, color: '#477f9a' }, wineryPlayer: { x: 450, y: 480, color: '#477f9a' },
   roomPeople: { hotel: 'lucia', bakery: 'marta', winery: 'sofia' }, notebookReturn: 'town', streetId: null, street: {},
   interviews: { hotel: [], bakery: [], winery: [] }, replies: {}, visits: [],
@@ -20,16 +20,27 @@ const blank = () => ({
 });
 let state, stored = null;
 try { stored = JSON.parse(localStorage.getItem(KEY) || 'null'); state = { ...blank(), ...stored }; } catch { state = blank(); }
-if (stored && !stored.mode) state.mode = 'guided';
 state.interviews ||= { hotel: [], bakery: [], winery: [] };
 state.breakfast ||= blank().breakfast; state.winery ||= blank().winery;
 state.caseHotel ||= blankCaseHotel();
 state.drafts ||= {};
-if (stored && stored.caseVersion !== 1) {
+if (stored && stored.caseVersion !== 3) {
+  state.archives = [...(state.archives || []), { label: 'Previous hotel exercise', savedAt: new Date().toISOString(), caseHotel: state.caseHotel, interviews: state.interviews.hotel, log: state.log?.filter(row => row.actor === 'hotel') || [] }];
+  state.log = (state.log || []).filter(row => row.actor !== 'hotel');
+  for (const name of Object.keys(state.drafts)) if (name.startsWith('case-hotel-')) delete state.drafts[name];
   state.interviews.hotel = [];
   state.replies.hotel = null;
   state.caseHotel = blankCaseHotel();
-  state.caseVersion = 1;
+  state.caseVersion = 3;
+}
+if (state.mode) state.mode = 'free';
+if (stored && stored.extensionVersion !== 2) {
+  state.archives = [...(state.archives || []), { label: 'Previous wine exercise', savedAt: new Date().toISOString(), winery: state.winery, interviews: state.interviews.winery, log: state.log?.filter(row => row.actor === 'winery') || [] }];
+  state.winery = blank().winery;
+  state.interviews.winery = [];
+  state.log = (state.log || []).filter(row => row.actor !== 'winery');
+  for (const name of Object.keys(state.drafts)) if (name.startsWith('winery-')) delete state.drafts[name];
+  state.extensionVersion = 2;
 }
 state.hints ||= {}; state.log ||= []; state.player ||= blank().player;
 state.hotelPlayer ||= blank().hotelPlayer;
@@ -44,6 +55,8 @@ if (stored && stored.mapVersion !== 2) {
 state.scratchpads ||= {};
 for (const actor of ['hotel', 'bakery', 'winery']) state.scratchpads[actor] = { ...emptyScratch(), ...state.scratchpads[actor] };
 let town = null, interior = null, toastTimer = null, lastMoveSave = 0;
+const conversations = new Map(); // Per actor, current page session only; notebook evidence stays saved.
+let conversationId=crypto.randomUUID();
 const roomPerson = (actor = state.actor) => ROOM_STAFF[actor]?.[state.roomPeople[actor]];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const fmt = n => Number.isFinite(n) ? round(n, 2).toString() : '—';
@@ -76,70 +89,33 @@ function toast(message) {
 }
 const asked = (actor, id) => state.interviews[actor]?.includes(id);
 const has = (actor, ids) => ids.every(id => asked(actor, id));
-const Q = {
-  hotel: [
-    ['price', 'How many rooms does this hotel have, and what units does the case use?', () => `The hotel has 78 rooms. Table 3 prices are in DKK, and Q is room-nights demanded by each guest group over the case period.`],
-    ['bookings', 'How do occupancy and season affect the hotel?', () => 'We close in January for maintenance. Occupancy varies with season; the case illustrates May at 45% occupancy over 31 days.'],
-    ['other', 'What are the demand estimates for the three guest groups?', () => 'Table 3 gives inverse demand: A: P = 2400 − 0.05Q; B: P = 2100 − 0.07Q; C: P = 1800 − 0.06Q. P is in DKK and Q in room-nights.'],
-    ['comparable', 'Who are groups A, B and C?', () => 'A is individual travelers without children (about 50% of high-season stays), B is group travelers (30%), and C is families with children (10%). The remaining 10% is mixed.'],
-    ['full', 'What is the hotel’s physical room capacity?', () => 'There are 78 rooms, including two small single rooms and six family rooms. A room-night is one room occupied for one night.'],
-    ['costs', 'Can the case show a profit-maximizing room price?', () => 'The case does not give a room-level cost function. Revenue and price sensitivity alone cannot establish the profit-maximizing nightly rate.'],
-    ['changes', 'What else might change demand?', () => 'A festival, competitor pricing, the season, or booking timing could shift demand. We keep those conditions fixed for this classroom investigation.'],
-    ['supply', 'Does breakfast supply affect the hotel?', () => 'Yes. If the bakery cannot serve every breakfast guest, service quality suffers. The hotel’s breakfast revenue and bread order cost are separate from room revenue.'],
-    ['income', 'What income elasticities does Table 3 give?', () => 'Ask Marco for the estimates by guest group.'],
-    ['cross', 'What does Table 3 say about Offers A and B?', () => 'Ask Marco for the cross-price estimates.'],
-    ['events', 'What challenges does the case describe?', () => 'Ask Lucia about the hotel’s wider challenges.']
-  ],
-  bakery: [
-    ['order', 'What does the hotel need from your bakery?', () => `${SCENARIO.breakfast.guests} guests need one roll each. The hotel earns ${eur(SCENARIO.breakfast.revenuePerBreakfast)} per breakfast served in this simplified breakfast contract.`],
-    ['one', 'What can one baker produce?', () => 'One baker makes 40 rolls in a shift with our single oven.'],
-    ['two', 'What changes with a second baker?', () => 'Two bakers make 60 rolls with the same oven. Compare that with one baker’s output before deciding whether the extra labour helps.'],
-    ['three', 'Would a third baker help?', () => 'Three bakers make 65 rolls. The oven is still the same size, and leftover rolls cannot be sold in this case.'],
-    ['cost', 'How are production costs calculated?', () => 'Labour costs €20 per baker. Ingredients cost €0.60 per roll produced. Work out each plan’s total cost before placing the order.'],
-    ['oven', 'Does the oven change when you hire more bakers?', () => 'No. We still have just one oven, and I sometimes see bakers waiting for it. Compare the extra rolls from each added baker.']
-  ],
-  winery: [
-    ['options', 'Which wines could the hotel buy?', () => `The hotel forecasts ${dinnerBottles()} dinners. House wine costs €8 per bottle. Estate reserve costs €12 per bottle; house wine can cover any remaining dinners.`],
-    ['stock', 'Can the estate supply every dinner?', () => 'No. Our estate reserve is limited to 60 bottles this period. The house wine can cover the rest.'],
-    ['forecast', 'How many bottles should the hotel plan for?', () => `This optional extension assumes ${nextPeriodGuests()} resident dinner guests plus ${SCENARIO.wine.outsideDiners} outside diners and one bottle per dinner. This forecast is illustrative and independent of Table 3 room-night demand.`],
-    ['taste', 'What did the tasting tell you?', () => 'In a small tasting panel, the house wine scored 7/10 and the estate reserve 9/10. That is a preference signal, not a measured increase in hotel profit or satisfaction.'],
-    ['investment', 'Should the hotel build its own winery?', () => 'That is a later investment question. We would need an initial cost, expected future cash flows, a discount rate, and risk before calculating NPV. Buying wine now does not answer it.']
-  ]
-};
-function recommended(actor) {
-  const order = actor === 'hotel' ? ['price', 'bookings', 'other', 'comparable', 'full', 'costs', 'changes', 'supply']
-    : actor === 'bakery' ? ['order', 'one', 'two', 'three', 'cost', 'oven']
-    : ['options', 'stock', 'forecast', 'taste', 'investment'];
-  return order.find(id => !asked(actor, id)) || order[0];
-}
-function question(actor, id) {
-  const item = Q[actor].find(row => row[0] === id); if (!item) return;
-  const fact = FREE_AGENTS[state.roomPeople[actor]]?.facts.find(entry => entry.id === id);
-  const answer = fact ? factReply(state.roomPeople[actor], fact, item[1], { nextPeriodGuests: nextPeriodGuests() }) : item[2]();
-  if (!asked(actor, id)) state.interviews[actor].push(id);
-  state.replies[actor] = { id, answer };
-  record('question', actor, item[1], { answer, speaker: ROOM_IDS.includes(state.view) ? roomPerson()?.name : ACTORS[actor].name }); render();
-}
 async function askFree(text) {
   if (state.mode !== 'free' || !ROOM_IDS.includes(state.view)) return;
   const person = roomPerson();
   const input = String(text || '').trim().slice(0, 400);
   if (!input) return;
   const actor = state.actor, personId = state.roomPeople[actor], requestState = state;
-  const history = state.log.filter(row => row.kind === 'question' && row.data?.mode === 'free' && row.data.speaker === person.name).slice(0, 6).reverse().map(row => ({ question: row.detail, answer: row.data.answer }));
+  const history = (conversations.get(personId) || []).slice(-6);
   const fallback = () => answerFreeQuestion(personId, input, { nextPeriodGuests: nextPeriodGuests(), history });
   let result;
   try {
-    const response = await fetch('/api/actor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, question: input, history, nextPeriodGuests: nextPeriodGuests() }), signal: AbortSignal.timeout(17000) });
-    if (!response.ok) throw new Error('Actor service unavailable');
+    const response = await fetch('/api/actor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({personId,question:input,conversationId}), signal: AbortSignal.timeout(32000) });
+    if (!response.ok) {
+      const error = new Error('Actor service unavailable');
+      const details = await response.json().catch(() => ({}));
+      error.reason = details.reason || (response.status === 429 ? 'rate_limited' : 'endpoint_unavailable');
+      error.requestId = details.requestId;
+      throw error;
+    }
     result = await response.json();
     if (typeof result.answer !== 'string' || result.answer.length > 800) throw new Error('Invalid actor response');
-  } catch { result = fallback(); result.source = 'fallback'; }
+  } catch (error) { result = { ...fallback(), source: 'fallback', reason: error.reason || (error.name === 'TimeoutError' ? 'api_timeout' : 'endpoint_unavailable'), requestId: error.requestId }; }
   if (state !== requestState) return;
+  conversations.set(personId, [...history, { question: input, answer: result.answer, source: result.source, reason: result.reason }]);
   const permitted = new Set(FREE_AGENTS[personId].facts.map(fact => fact.id));
   for (const id of new Set([result.factId, ...(Array.isArray(result.factIds) ? result.factIds : [])])) if (permitted.has(id) && !asked(actor, id)) state.interviews[actor].push(id);
   if (state.roomPeople[actor] === personId) state.replies[actor] = { id: result.factId, answer: result.answer };
-  record('question', actor, input, { answer: result.answer, speaker: person.name, mode: 'free', factId: result.factId, source: result.source });
+  record('question', actor, input, { answer: result.answer, speaker: person.name, mode: 'free', factId: result.factId, source: result.source, reason: result.reason, requestId: result.requestId });
   render();
 }
 function visit(actor) {
@@ -189,34 +165,33 @@ function roomGuide(actor) {
   return null;
 }
 function nextTask() {
-  if (!state.visits.includes('hotel')) return { actor: 'hotel', label: 'Meet Lucia at the hotel', action: 'Ask about the 78-room hotel and its seasonal guests.' };
-  if (!has('hotel', ['price', 'bookings'])) return { actor: 'hotel', label: 'Ask Lucia about the case', action: 'Find the hotel capacity, the case units and how occupancy varies.' };
-  if (!has('hotel', ['other', 'comparable'])) return { actor: 'hotel', label: 'Ask Marco about guest groups', action: 'Collect the group definitions and Table 3 demand curves.' };
+  if (!state.visits.includes('hotel')) return { actor: 'hotel', label: 'Meet Lucia at the hotel', action: 'Ask about the 80-room hotel and the EUR reference observations.' };
+  if (!has('hotel', ['price', 'bookings'])) return { actor: 'hotel', label: 'Ask Lucia about the case', action: 'Collect her reference price and bookings, including the units.' };
+  if (!has('hotel', ['other', 'comparable'])) return { actor: 'hotel', label: 'Ask Marco about the comparison', action: 'Collect his comparison observation and the comparable conditions.' };
   if (!has('hotel', ['full', 'costs'])) return { actor: 'hotel', label: 'Ask Elena about capacity and costs', action: 'Distinguish nightly room capacity from period demand and identify missing cost information.' };
-  if (!state.caseHotel.mr) return { actor: 'hotel', label: 'Find demand, TR and MR', action: 'Use the original case demand curve for group A to work out TR and MR.' };
-  if (!state.caseHotel.elasticity) return { actor: 'hotel', label: 'Compare price elasticities', action: 'Calculate price elasticity for groups A, B and C at DKK 1,400.' };
-  if (!state.caseHotel.interpretation) return { actor: 'hotel', label: 'Advise the hotel', action: 'Interpret income and cross-price elasticities and reflect on pricing uncertainty.' };
-  if (!state.caseHotel.demandModel) return { actor: 'hotel', label: '4.1.3 · Build a demand model', action: 'Define a multiple demand function and explain its coefficient signs and magnitudes.' };
-  if (!state.caseHotel.changes) return { actor: 'hotel', label: '4.1.4 · Analyze case events', action: 'Explain how case events could change sensitivity to substitute and complement prices.' };
+  if (!state.caseHotel.demand) return { actor: 'hotel', label: 'Derive the demand function', action: 'Use the two points collected from different actors, then check your function in the workspace.' };
+  if (!state.caseHotel.mr) return { actor: 'hotel', label: 'Derive TR and MR', action: 'Use your checked demand function to work out TR and MR.' };
+  if (!state.caseHotel.elasticity) return { actor: 'hotel', label: 'Calculate price elasticity', action: 'Calculate price elasticity of requested rooms at €170.' };
+  if (!state.caseHotel.interpretation) return { actor: 'hotel', label: 'Advise the hotel', action: 'Predict demand, capped sales and room revenue for your chosen rate.' };
   return { actor: 'hotel', label: 'Hotel case complete · Review your notebook', action: 'Export your work for discussion. Bakery, wine and street practice are optional extensions.' };
 }
 function nextPeriodGuests() { return SCENARIO.breakfast.guests; }
-function dinnerBottles() { return nextPeriodGuests() + SCENARIO.wine.outsideDiners; }
+function dinnerBottles() { return Math.ceil((nextPeriodGuests() + SCENARIO.wine.outsideDiners) * SCENARIO.wine.bottlesPerDiner); }
 function townView() {
   const task = nextTask();
   const breakfast = state.breakfast.decision;
-  const milestones = [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation, !!state.caseHotel.demandModel, !!state.caseHotel.changes];
+  const milestones = [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.demand, !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation];
   const finished = milestones.filter(Boolean).length;
-  return `<div class="game-heading"><div><p class="eyebrow">Sirmione · Lake Garda · Original case</p><h1>Hotel Sole Nascente</h1></div><span class="game-day">${finished} / ${milestones.length} hotel steps</span></div><p class="notice">${caseHotelComplete(state.caseHotel) ? 'Hotel case completed. Export your notebook for instructor review. Try the optional extensions if you wish.' : 'Main assignment: complete hotel case questions 4.1.1–4.1.4. Follow the current objective to interview staff and complete your calculations and analysis.'} Bakery, wine and street exercises use separate illustrative data and are optional.</p>
-    <div class="mode-status"><span>Conversation mode: <b>${state.mode === 'free' ? 'Ask your own questions' : 'Guided'}</b></span><button type="button" data-action="change-mode">Change mode</button></div>
+  return `<div class="game-heading"><div><p class="eyebrow">80-room EUR demonstration</p><h1>Hotel Sole Nascente</h1></div><span class="game-day">${finished} / ${milestones.length} hotel steps</span></div><p class="notice">${caseHotelComplete(state.caseHotel) ? 'Hotel case completed. Export your notebook for instructor review. Try the optional extensions if you wish.' : 'Main assignment: derive revenue functions, calculate price elasticity and test a room rate. Follow the current objective to interview staff and complete your calculations and analysis.'} Bakery, wine and street exercises use separate illustrative data and are optional.</p>
+    <div class="mode-status"><span>Conversations: <b>Ask your own questions</b></span></div>
     <section class="game-shell" aria-label="Riviera district">
       <div class="town-stage"><canvas id="town-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable Italian coastal district. Enter the hotel, bakery, or vineyard; Ana and Enzo walk the streets with optional utility questions. Arrow keys or WASD move; E interacts. People and buildings can also be clicked."></canvas><div class="mobile-map-label hotel"><b>HOTEL SOLE NASCENTE</b><span>Pricing · demand · elasticity</span></div><div class="mobile-map-label bakery"><b>MARTA’S BAKERY</b><span>Production theory</span></div><div class="mobile-map-label winery"><b>SOLE VINEYARD</b><span>Wine purchasing</span></div>${state.overlay === 'street' ? streetOverlay() : state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
       <div class="game-status"><div class="game-objective"><span>Current objective</span><strong>${esc(task.label)}</strong></div><button class="game-go" data-visit="${task.actor}">Enter ${task.actor === 'hotel' ? 'hotel' : task.actor === 'bakery' ? 'bakery' : 'vineyard'} <span aria-hidden="true">→</span></button><div class="game-steps" role="img" aria-label="${finished} of ${milestones.length} milestones complete">${milestones.map(done => `<i class="${done ? 'done' : ''}"></i>`).join('')}</div></div>
       <div class="town-controls"><div class="touch-controls" aria-label="Movement controls"><button data-move="arrowleft" aria-label="Move left" title="Move left">◀</button><button data-move="arrowup" aria-label="Move up" title="Move up">▲</button><button data-move="arrowdown" aria-label="Move down" title="Move down">▼</button><button data-move="arrowright" aria-label="Move right" title="Move right">▶</button><button data-action="talk" aria-label="Talk nearby" title="Talk nearby">✦</button></div></div>
     </section>
-    <nav class="district-links" aria-label="Places to visit">${[['hotel', 'Hotel Sole Nascente · Main case', 'Lucia, Marco, Elena · Questions 4.1.1–4.1.4'], ['bakery', 'Marta’s Bakery · Optional', 'Marta, Paolo · Production and marginal product'], ['winery', 'Sole Vineyard · Optional', 'Sofia, Giulia · Wine supply and purchasing']].map(([id, name, topic]) => `<button class="district-link" data-visit="${id}"><span class="district-symbol ${id}" aria-hidden="true"></span><span><strong>${name}</strong><small>${topic}</small></span><span aria-hidden="true">→</span></button>`).join('')}</nav>
+    <nav class="district-links" aria-label="Places to visit">${[['hotel', 'Hotel Sole Nascente · Main case', 'Lucia, Marco, Elena · Demand, revenue and pricing'], ['bakery', 'Marta’s Bakery · Optional', 'Marta, Paolo · Production and marginal product'], ['winery', 'Sole Vineyard · Optional', 'Sofia, Giulia · Wine supply and purchasing']].map(([id, name, topic]) => `<button class="district-link" data-visit="${id}"><span class="district-symbol ${id}" aria-hidden="true"></span><span><strong>${name}</strong><small>${topic}</small></span><span aria-hidden="true">→</span></button>`).join('')}</nav>
     <nav class="street-links" aria-label="Optional street exercises"><span>Street practice · Utility maximization</span>${STREET_PEOPLE.map(person => `<button data-street="${person.id}"><b>${esc(person.name)}</b><small>${esc(person.role)} · ${state.street[person.id]?.solved ? 'Solved' : 'Quick choice'}</small><span aria-hidden="true">→</span></button>`).join('')}</nav>
-    <details class="hotel-ledger"><summary>Case and extensions <span>${state.log.length} notes saved</span></summary><div class="ledger-content"><div><div class="metric-row"><span>Original hotel</span><strong>78 rooms</strong></div><div class="metric-row"><span>Hotel case</span><strong>${state.caseHotel.interpretation ? 'Advice saved' : 'In progress'}</strong></div><div class="metric-row"><span>Bakery extension</span><strong>${breakfast ? `${breakfast.served} / 60 served` : 'To arrange'}</strong></div></div><div><p>The attached hotel case uses DKK and customer-group room-nights. Bakery and winery use separate illustrative euro data; their guest counts do not come from the original case.</p></div></div></details>`;
+    <details class="hotel-ledger"><summary>Case and extensions <span>${state.log.length} notes saved</span></summary><div class="ledger-content"><div><div class="metric-row"><span>Demonstration hotel</span><strong>80 rooms</strong></div><div class="metric-row"><span>Hotel case</span><strong>${state.caseHotel.interpretation ? 'Advice saved' : 'In progress'}</strong></div><div class="metric-row"><span>Bakery extension</span><strong>${breakfast ? `${breakfast.served} / 60 served` : 'To arrange'}</strong></div></div><div><p>The active hotel demonstration uses EUR and requested rooms for one night. Bakery and winery use separate illustrative euro data; their fixed guest counts are independent of the hotel pricing decision.</p></div></div></details>`;
 }
 function roomView(actor) {
   const staff = ROOM_STAFF[actor], guide = roomGuide(actor);
@@ -224,7 +199,7 @@ function roomView(actor) {
   const extensionComplete = actor === 'bakery' ? !!state.breakfast.decision?.reflection : actor === 'winery' ? !!state.winery.reflection && !state.winery.needsReview : false;
   const townNext = actor !== 'hotel' && extensionComplete;
   const steps = actor === 'hotel'
-    ? [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation, !!state.caseHotel.demandModel, !!state.caseHotel.changes]
+    ? [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.demand, !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation]
     : actor === 'bakery'
       ? [has('bakery', ['order', 'cost']), has('bakery', ['one', 'two', 'three']), state.breakfast.runs.some(run => run.verified), !!state.breakfast.decision, !!state.breakfast.decision?.reflection]
       : [has('winery', ['options', 'taste']), has('winery', ['stock', 'forecast']), !!state.winery.choice && !state.winery.needsReview, !!state.winery.reflection];
@@ -240,24 +215,20 @@ function roomView(actor) {
     </section>
     <nav class="interior-actions" aria-label="${esc(title)} locations">${Object.entries(staff).map(([id, person]) => `<button data-person="${id}"><strong>${esc(person.name)}</strong><small>${esc(person.role)}</small></button>`).join('')}<button data-action="workspace"><strong>Workspace</strong><small>${actor === 'hotel' ? 'Demand, MR and elasticity' : actor === 'bakery' ? 'Output and marginal product' : 'Quantities and purchasing'}</small></button><button data-view="town"><strong>Town</strong><small>Leave this room</small></button></nav>`;
 }
-function suggestedQuestions(actor) {
-  const options = ROOM_IDS.includes(state.view) ? roomPerson(actor).questions : Q[actor].map(row => row[0]);
-  const next = options.find(key => !asked(actor, key)) || options[0];
-  return [next, ...options.filter(key => key !== next && !asked(actor, key)).slice(0, 2)];
-}
 function dialogueOverlay() {
   const id = state.actor, actor = ACTORS[id], current = state.replies[id];
   const speaker = ROOM_IDS.includes(state.view) ? roomPerson(id) : actor;
-  const questions = ROOM_IDS.includes(state.view) ? Q[id].filter(row => speaker.questions.includes(row[0])) : Q[id];
-  const suggestions = suggestedQuestions(id);
-  const turns = state.mode === 'free' ? state.log.filter(row => row.kind === 'question' && row.data?.mode === 'free' && row.data.speaker === speaker.name).slice(0, 4) : [];
+  const turns = (conversations.get(state.roomPeople[id]) || []).slice(-4).reverse().map(turn => ({ detail: turn.question, data: { answer: turn.answer, source: turn.source, reason: turn.reason } }));
+  const latest = turns[0]?.data;
+  const fallbackLabels = {offline_mode:'Offline mode',missing_api_key:'AI is not configured',model_output_rejected:'AI response did not meet case rules',daily_limit:'Daily AI call limit reached',concurrency_limit:'AI temporarily busy',session_rate_limit:'Please pause before asking again',ip_rate_limit:'AI temporarily busy',authentication_error:'AI connection needs attention'};
+  const replyLabel = latest?.source === 'model' ? 'AI reply' : latest?.source === 'mock' ? 'Simulated reply · Offline test' : latest?.source === 'boundary' ? 'Case reply · Student-work rule' : latest ? `Case reply · ${fallbackLabels[latest.reason] || 'AI unavailable'}` : '';
   return `<div class="scene-shade"></div><section class="scene-dialogue business-${id}" role="dialog" aria-modal="true" aria-label="Conversation with ${esc(speaker.name)}">
     <div class="scene-dialogue-head"><span>${esc(speaker.name)} · ${esc(speaker.role)}</span><button type="button" data-action="close-overlay" aria-label="Close conversation" title="Close conversation">×</button></div>
     <div class="scene-interior ${id}" aria-hidden="true"><i></i><b></b><em></em></div>
-    ${turns.length ? `<div class="student-turn"><b>You asked:</b> ${esc(turns[0].detail)}</div>` : ''}<div class="scene-speech"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(current?.answer || (state.mode === 'free' ? `Hi, I'm ${speaker.name}, the ${speaker.role.toLowerCase()}. What can I help you with?` : speaker.introduction))}</p></div>
+    ${turns.length ? `<div class="student-turn"><b>You asked:</b> ${esc(turns[0].detail)}</div>` : ''}<div class="scene-speech"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(turns[0]?.data.answer || speaker.introduction)}</p></div>
+    ${replyLabel ? `<small class="reply-source" role="status">${esc(replyLabel)}</small>` : ''}
     ${turns.length > 1 ? `<details class="conversation-history"><summary>Earlier in this conversation</summary>${turns.slice(1).reverse().map(row => `<p><b>You:</b> ${esc(row.detail)}<br><b>${esc(speaker.name)}:</b> ${esc(row.data.answer)}</p>`).join('')}</details>` : ''}
-    ${state.mode === 'free' ? `<form class="free-question" data-form="free-question"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required placeholder="Type your own question…"><button type="submit">Ask</button></div><small>Ask for facts; you work out the calculation and decision. Responses use this case’s approved facts.</small></form>` : `<div class="scene-questions"><span class="scene-caption">Ask ${esc(speaker.name)}</span>${suggestions.map((key, i) => { const item = questions.find(row => row[0] === key); return `<button type="button" data-question="${key}" class="scene-question"><b>${i + 1}</b><span>${esc(item[1])}</span></button>`; }).join('')}
-    ${questions.length > suggestions.length ? `<details><summary>More questions</summary><div class="scene-more">${questions.filter(row => !suggestions.includes(row[0])).map(row => `<button type="button" data-question="${row[0]}">${asked(id, row[0]) ? '✓ ' : ''}${esc(row[1])}</button>`).join('')}</div></details>` : ''}</div>`}
+    <form class="free-question" data-form="free-question"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required placeholder="Type your own question…"><button type="submit">Ask</button></div><small>Ask for facts; you work out the calculation and decision.</small></form>
     <div class="scene-dialogue-foot"><button type="button" class="scene-primary" data-action="workspace">Open ${id === 'hotel' ? 'hotel case' : id === 'bakery' ? 'production' : 'purchasing'} workspace →</button><button type="button" data-view="notebook" class="scene-secondary">Notebook</button></div>
   </section>`;
 }
@@ -303,10 +274,10 @@ function scratchResult(actor) {
 }
 function formulaHelp(actor) {
   if (actor === 'hotel') {
-    return `<p><code>TR(Q) = P(Q) × Q</code><br><code>MR(Q) = dTR/dQ</code>. Use one customer group's inverse demand at a time.</p><p><code>Q = (P − a) / b</code> for <code>P(Q) = a + bQ</code>.</p><p><code>Price elasticity = (1 / b) × (P / Q)</code>. At ${dkk(1400)}, calculate Q for each group first. Compare absolute elasticities.</p><p>Table 3 Q is group room-nights over a period. The hotel's 78 rooms are a nightly capacity; do not equate these without a common time period.</p>`;
+    return `<p><code>TR(Q) = P(Q) × Q</code><br><code>MR(Q) = dTR/dQ</code> for uncapped demand revenue.</p><p><code>Q = (P − a) / b</code> for <code>P(Q) = a + bQ</code>.</p><p><code>Price elasticity = (1 / b) × (P / Q)</code>. Use the €170 reference observation.</p><p><code>Rooms sold = min(requested rooms, 80)</code><br><code>Room revenue = price × rooms sold</code>.</p><p>Uncapped MR does not describe capped sales. Operating costs are missing.</p>`;
   }
   if (actor === 'bakery') return `<p><code>Extra output = new rolls − previous rolls</code><br>Compare the extra rolls from each additional baker.</p><p><code>Order cost = (€20 × bakers) + (€0.60 × rolls produced)</code>.</p><p><code>Guests served = min(rolls, 60)</code><br><code>Contract contribution = (€3 × guests served) − order cost</code>.</p><p>Contribution from this contract is not total hotel profit.</p>`;
-  return `<p><code>Purchase cost = (estate bottles × €12) + (house bottles × €8)</code>.</p><p>Cover the forecast dinners, but remember that estate supply is limited to 60 bottles. A tasting score does not measure willingness to pay or profit.</p>`;
+  return `<p><code>Purchase cost = (estate bottles × €12) + (house bottles × €8)</code>.</p><p>Cover the forecast dinners, but remember that estate supply is limited to 30 bottles. A tasting score does not measure willingness to pay or profit.</p>`;
 }
 function scratchpad(actor) {
   const s = state.scratchpads[actor];
@@ -318,7 +289,7 @@ function workspaceOverlay() {
   const task = id === 'hotel' ? caseHotelTask(state.caseHotel, state.interviews.hotel, esc) : id === 'bakery' ? bakeryTask() : wineryTask();
   const latest = state.log.filter(entry => entry.actor === id && entry.kind === 'question').slice(0, 3);
   return `<div class="scene-shade"></div><section class="mini-workspace business-${id}" role="dialog" aria-modal="true" aria-label="${id === 'hotel' ? 'Hotel' : esc(actor.name)} calculation workspace">
-    <div class="mini-head"><div><small>${esc(contact.role)} · ${id === 'hotel' ? 'Original case' : 'Game extension'}</small><strong>${id === 'hotel' ? 'Hotel case exercises' : id === 'bakery' ? 'Breakfast production' : 'Wine purchasing'}</strong></div><button type="button" data-action="close-overlay" aria-label="Close workspace" title="Close workspace">×</button></div>
+    <div class="mini-head"><div><small>${esc(contact.role)} · ${id === 'hotel' ? 'EUR demonstration' : 'Optional extension'}</small><strong>${id === 'hotel' ? 'Hotel case exercises' : id === 'bakery' ? 'Breakfast production' : 'Wine purchasing'}</strong></div><button type="button" data-action="close-overlay" aria-label="Close workspace" title="Close workspace">×</button></div>
     <div class="mini-columns"><aside class="mini-tools"><div class="mini-tool-links"><button type="button" class="scene-secondary" data-action="dialogue">← Talk to ${esc(contact.name)}</button><button type="button" class="scene-secondary" data-view="notebook">Notebook</button></div><details class="mini-evidence"><summary>Field notes <small>${latest.length} recent</small></summary><div>${latest.length ? latest.map(entry => `<div class="mini-note"><b>${esc(entry.detail)}</b><p>${esc(entry.data?.answer || '')}</p></div>`).join('') : '<p>No evidence yet. Talk to the owner to begin.</p>'}</div></details><div class="formula-tool"><button type="button" data-action="formula-help" aria-expanded="false" aria-controls="formula-help-${id}">Formula help <span aria-hidden="true">?</span></button><div id="formula-help-${id}" class="formula-content" hidden>${formulaHelp(id)}</div></div>${scratchpad(id)}</aside><div class="mini-task">${task}${id === 'hotel' ? `<div class="button-row"><button class="button secondary" data-action="hint">Need a hint?</button></div>${hintText('hotel')}` : ''}</div></div>
   </section>`;
 }
@@ -336,7 +307,7 @@ function bakeryTask() {
   if (!ready) {
     body += `<h2>Find the production facts</h2><p>Ask Marta about the hotel order and costs. Ask Paolo how many rolls one, two, and three bakers produce using the same oven.</p><div class="step-list">${[['order','Hotel order'],['one','One baker'],['two','Two bakers'],['three','Three bakers'],['cost','Labour and ingredient cost']].map(([id,label]) => `<div class="step ${asked('bakery',id)?'done':''}"><b>${asked('bakery',id)?'✓':'•'}</b><span>${label}</span></div>`).join('')}</div>`;
   } else {
-    body += `<h2>${tested.size < 3 ? 'Calculate a production plan' : 'Choose a plan you can defend'}</h2><p>Use the figures you gathered to calculate extra output, order cost, and guests served. Test all three plans before choosing.</p><div class="scroll-table"><table class="observation-table"><tr><th>Bakers</th><th>Rolls from one oven</th></tr>${SCENARIO.breakfast.plans.map(plan => `<tr><td>${plan.bakers}</td><td>${plan.rolls}</td></tr>`).join('')}</table></div><p class="muted">Hotel order: ${SCENARIO.breakfast.guests} rolls · Labour: €20 per baker · Ingredients: €0.60 per roll produced</p><div class="step-list">${SCENARIO.breakfast.plans.map(plan => `<div class="step ${tested.has(plan.bakers) ? 'done' : ''}"><b>${tested.has(plan.bakers) ? '✓' : '•'}</b><span>${plan.bakers} baker${plan.bakers > 1 ? 's' : ''} ${tested.has(plan.bakers) ? 'tested' : 'to test'}</span></div>`).join('')}</div>
+    body += `<h2>${tested.size < 3 ? 'Calculate a production plan' : 'Choose a plan you can defend'}</h2><p>Use the figures you gathered to calculate extra output, order cost, and guests served. Test all three plans before choosing.</p><div class="scroll-table"><table class="observation-table"><tr><th>Bakers</th><th>Rolls from one oven</th></tr>${SCENARIO.breakfast.plans.map(plan => `<tr><td>${plan.bakers}</td><td>${plan.rolls}</td></tr>`).join('')}</table></div><p class="muted">Hotel order: ${SCENARIO.breakfast.guests} rolls · Labour: €20 per baker for a one-hour breakfast batch · Ingredients: €0.60 per roll produced. Surplus rolls have no resale value in this contract.</p><div class="step-list">${SCENARIO.breakfast.plans.map(plan => `<div class="step ${tested.has(plan.bakers) ? 'done' : ''}"><b>${tested.has(plan.bakers) ? '✓' : '•'}</b><span>${plan.bakers} baker${plan.bakers > 1 ? 's' : ''} ${tested.has(plan.bakers) ? 'tested' : 'to test'}</span></div>`).join('')}</div>
     <form data-form="bakery-test"><label class="field">Bakers scheduled<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${nextBakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><div class="field-grid"><label class="field">Extra rolls from this baker<input name="predictedExtra" type="number" min="0" step="any" required placeholder="Difference from prior plan"></label><label class="field">Predicted order cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Labour + ingredients"></label><label class="field">Predicted guests served<input name="prediction" type="number" min="0" max="60" step="any" required placeholder="At most 60"></label></div><button class="button">Test this production plan</button></form>`;
     if (b.runs.length) body += `<details class="prior-tests"><summary>Review tested plans (${tested.size}/3 verified)</summary><div class="scroll-table"><table class="data-table"><tr><th>Bakers</th><th>Your extra</th><th>Actual extra</th><th>Served</th><th>Order cost</th><th>Status</th></tr>${b.runs.map(r => `<tr><td>${r.bakers}</td><td>${fmt(r.predictions?.extraOutput)}</td><td>${r.extraOutput ?? r.rolls - (SCENARIO.breakfast.plans[r.bakers - 2]?.rolls ?? 0)}</td><td>${r.served}</td><td>${eur(r.orderCost)}</td><td>${r.verified === false ? 'Re-test' : 'Checked'}</td></tr>`).join('')}</table></div></details>`;
     if (tested.size === 3) body += `<hr class="section-rule"><h3>Final breakfast order</h3><p>Which plan best balances service with cost? You can still test another option first.</p><form data-form="bakery-decide"><label class="field">Choose number of bakers<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${b.decision?.bakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><label class="field">Explain your decision<textarea name="reason" required placeholder="Compare extra output, guests served, costs, and the fixed oven...">${esc(b.decision?.reason || '')}</textarea></label><button class="button">${b.decision ? 'Update order' : 'Commit breakfast order'}</button></form>`;
@@ -352,7 +323,7 @@ function wineryTask() {
   if (!ready) body += `<h2>What can the winery supply?</h2><p>Ask Sofia about the wines and tasting results. Ask Giulia about available stock and the hotel’s dinner forecast.</p><div class="step-list">${[['options','Purchase options'],['stock','Estate supply limit'],['forecast','Dinner forecast'],['taste','Tasting evidence']].map(([id,label]) => `<div class="step ${asked('winery',id)?'done':''}"><b>${asked('winery',id)?'✓':'•'}</b><span>${label}</span></div>`).join('')}</div>`;
   else {
     const bottles = dinnerBottles();
-    body += `<h2>Choose wine for ${bottles} dinners</h2><p>This optional extension assumes ${nextPeriodGuests()} resident dinner guests plus ${SCENARIO.wine.outsideDiners} outside diners, one bottle per dinner. These figures are independent of the original hotel demand curves. House wine is €8 per bottle; estate reserve is €12 and limited to 60 bottles. Calculate quantities and cost before ordering.</p><form data-form="winery-decide"><div class="choice-cards">${SCENARIO.wine.options.map(opt => `<label class="choice-card"><input type="radio" name="choice" value="${opt.id}" ${state.winery.choice === opt.id ? 'checked' : ''} required><span><b>${opt.id === 'mixed' ? 'Estate reserve plus house wine' : 'House wine only'}</b><small>${esc(opt.tasting)}</small></span></label>`).join('')}</div><div class="field-grid"><label class="field">Estate bottles<input name="predictedEstate" type="number" min="0" max="60" step="1" required placeholder="0–60"></label><label class="field">House bottles<input name="predictedHouse" type="number" min="0" step="1" required placeholder="Cover the rest"></label><label class="field">Predicted purchase cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Work out total"></label></div><label class="field">Why this option?<textarea name="reason" required placeholder="Discuss cost, availability, and what is still uncertain...">${esc(state.winery.reason)}</textarea></label><button class="button">${state.winery.choice ? 'Test revised order' : 'Test and save wine order'}</button></form>`;
+    body += `<h2>Choose wine for ${nextPeriodGuests() + SCENARIO.wine.outsideDiners} diners</h2><p>This optional extension assumes ${nextPeriodGuests()} resident dinner guests plus ${SCENARIO.wine.outsideDiners} outside diners, one 750 ml bottle shared by two adult diners who choose wine. These figures are independent of the hotel room-demand estimate. House wine is €8 per bottle; estate reserve is €12 and limited to 30 bottles. Calculate quantities and cost before ordering.</p><form data-form="winery-decide"><div class="choice-cards">${SCENARIO.wine.options.map(opt => `<label class="choice-card"><input type="radio" name="choice" value="${opt.id}" ${state.winery.choice === opt.id ? 'checked' : ''} required><span><b>${opt.id === 'mixed' ? 'Estate stock first then house wine' : 'House wine only'}</b><small>${esc(opt.tasting)}</small></span></label>`).join('')}</div><div class="field-grid"><label class="field">Estate bottles<input name="predictedEstate" type="number" min="0" max="30" step="1" required placeholder="0–30"></label><label class="field">House bottles<input name="predictedHouse" type="number" min="0" step="1" required placeholder="Cover the rest"></label><label class="field">Predicted purchase cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Work out total"></label></div><label class="field">Why this option?<textarea name="reason" required placeholder="Discuss cost, availability, and what is still uncertain...">${esc(state.winery.reason)}</textarea></label><button class="button">${state.winery.choice ? 'Test revised order' : 'Test and save wine order'}</button></form>`;
     if (state.winery.choice) body += `<div class="notice ${state.winery.needsReview ? 'warning' : ''}" data-wine-result><b>Your last tested order:</b> ${state.winery.estate} estate + ${state.winery.house} house bottles · ${eur(state.winery.cost)} purchase cost. ${state.winery.needsReview ? 'The room forecast changed. Calculate the new quantities and test this order again.' : 'We have not estimated its effect on hotel profit or guest satisfaction.'}</div>${state.winery.needsReview ? '' : reflectionForm('winery', state.winery.reflection)}`;
   }
   if (state.winery.feedback) body += `<p class="feedback ${state.winery.feedback.startsWith('Saved') ? 'good' : ''}" role="status">${esc(state.winery.feedback)}</p>`;
@@ -364,16 +335,15 @@ function hintText(actor) {
   const level = state.hints[stage ? `hotel-${stage}` : actor] || 0;
   if (!level) return '';
   const hotelHints = {
-    mr: ['For group A, multiply P(Q) by Q to find TR(Q).', 'Differentiate TR(Q) term by term for MR(Q).', 'The Q coefficient in MR is twice the Q² coefficient in TR.'],
-    elasticity: ['Use each group’s own inverse-demand curve.', 'At DKK 1,400, find Q for each group before calculating elasticity.', 'A smaller absolute elasticity means a smaller percentage demand response.'],
-    interpretation: ['An elasticity compares percentage changes, holding other factors fixed.', 'Income elasticity concerns income; cross-price elasticity concerns another product’s price.', 'Interpret both signs and magnitudes, then propose examples of the two offers.'],
-    demandModel: ['List the factors that could affect room-night demand.', 'Choose coefficient signs while holding other variables fixed.', 'Elasticities are not the same as regression coefficients. Define units and say what data estimation would require.'],
-    changes: ['Start with an event described in the case.', 'Separate a change in a price from a change in sensitivity to that price.', 'A baseline demand shift does not prove that Ps or Pk coefficients changed. Explain your assumptions.'],
+    demand: ['Find one complete price–quantity observation from each of Lucia and Marco.', 'Choose your axes and compare the changes between observations.', 'Check whether your function reproduces both observations under the stated conditions.'],
+    mr: ['Multiply your checked P(Q) by Q to find TR(Q).', 'Differentiate TR(Q) term by term for MR(Q).', 'Keep the sign and distinguish uncapped revenue from sales with a capacity limit.'],
+    elasticity: ['Use the €170 observation and its requested rooms.', 'Invert the inverse-demand slope to obtain dQ/dP.', 'Interpret a percentage demand response, holding other demand conditions fixed.'],
+    interpretation: ['Calculate requested rooms using the demand equation.', 'Cap rooms sold at 80 before calculating room revenue.', 'A revenue comparison cannot establish profit maximization when operating costs are missing.'],
     complete: ['Review your saved reasoning in the notebook.', 'Check that your units and assumptions are clear.', 'Export your notebook for discussion with your instructor.']
   };
   const hints = actor === 'hotel' ? hotelHints[stage]
     : actor === 'bakery' ? ['Compare extra output from each additional baker.', 'A third baker adds five rolls, but the hotel has only 60 guests.', 'Compare the contribution for each plan: breakfast revenue minus the bread order cost.']
-    : ['The estate can provide only 60 bottles.', `Calculate the total purchase cost for each ${dinnerBottles()}-bottle plan.`, 'A tasting score is not a measured willingness to pay.'];
+    : ['The estate can provide only 30 bottles.', `Calculate the total purchase cost for each ${dinnerBottles()}-bottle plan.`, 'A tasting score is not a measured willingness to pay.'];
   return `<div class="hint-box">Hint ${Math.min(level, 3)}: ${esc(hints[Math.min(level, 3) - 1])}</div>`;
 }
 function notebookView() {
@@ -382,10 +352,10 @@ function notebookView() {
   const returnPlace = ROOM_IDS.includes(state.notebookReturn) ? state.notebookReturn : 'town';
   const elasticityWork = state.caseHotel.elasticity;
   return `<div class="screen-head"><div><p class="eyebrow">Saved on this device</p><h1>Field notebook</h1></div><div class="button-row"><button class="button secondary" data-view="${returnPlace}">← ${returnPlace[0].toUpperCase() + returnPlace.slice(1)}</button><button class="button" data-action="export">Export JSON ↓</button></div></div>
-  ${elasticityWork ? `<section class="panel"><h2>4.1.1 · Price elasticity at DKK 1,400</h2><p>${Object.entries(elasticityWork.values).map(([group,value]) => `${esc(group)}: ${esc(value)}`).join(' · ')} · Least sensitive: ${esc(elasticityWork.least)}</p><p>${esc(elasticityWork.explanation || 'Add your written explanation using Review 4.1.1 in the hotel workspace.')}</p></section>` : ''}<div class="notebook-grid"><section class="panel"><h2>Evidence and interviews</h2>${interviews.length ? interviews.map(e => `<div class="entry"><strong>${esc(e.data?.speaker || ACTORS[e.actor]?.name || e.actor)} · ${esc(e.detail)}</strong><p>${esc(e.data?.answer || '')}</p><small>${new Date(e.at).toLocaleString()}</small></div>`).join('') : '<p class="empty">No questions asked yet. Visit a business to begin.</p>'}</section>
+  ${elasticityWork ? `<section class="panel"><h2>Price elasticity at €170</h2><p>Your elasticity: ${esc(elasticityWork.value)}</p><p>${esc(elasticityWork.explanation)}</p></section>` : ''}<div class="notebook-grid"><section class="panel"><h2>Evidence and interviews</h2>${interviews.length ? interviews.map(entry => `<div class="entry"><strong>${esc(entry.data?.speaker || entry.actor)} · ${esc(entry.detail)}</strong><p>${esc(entry.data?.answer || '')}</p></div>`).join('') : '<p class="empty">Interview the hotel staff to begin.</p>'}</section>
   <section class="panel"><h2>Models, tests, and decisions</h2>${work.length ? work.map(e => `<div class="entry"><strong>${esc(e.kind.replaceAll('_',' '))} · ${esc(ACTORS[e.actor]?.name || e.actor)}</strong><p>${esc(e.detail)}</p><small>${new Date(e.at).toLocaleString()}</small></div>`).join('') : '<p class="empty">Your proposals, tests, revisions, hints, and decisions will appear here.</p>'}</section>
-  <section class="panel full"><h2>Hotel case · Questions 4.1.1–4.1.4</h2><p>${caseHotelComplete(state.caseHotel) ? 'Completed · Written reasoning awaits instructor review.' : 'Continue the hotel workspace to finish the main assignment.'}</p>${state.caseHotel.interpretation ? `<h3>4.1.2 · Elasticity interpretation</h3><p>${esc(state.caseHotel.interpretation.reflection)}</p>` : ''}${state.caseHotel.demandModel ? `<h3>4.1.3 · Multiple demand model</h3><p>${esc(state.caseHotel.demandModel.model)}</p>` : ''}${state.caseHotel.changes ? `<h3>4.1.4 · Case events: ${esc(state.caseHotel.changes.event)}</h3><p>${esc(state.caseHotel.changes.reflection)}</p>` : ''}</section>
-  <section class="panel full"><h2>Current results</h2><div class="field-grid"><div><div class="metric-row"><span>Hotel TR and MR</span><strong>${state.caseHotel.mr ? 'Completed' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel elasticity</span><strong>${state.caseHotel.elasticity ? 'Three groups compared' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel advice</span><strong>${state.caseHotel.interpretation ? 'Saved' : 'To write'}</strong></div></div><div><div class="metric-row"><span>Bakery extension</span><strong>${state.breakfast.decision ? `${state.breakfast.decision.bakers} bakers` : 'Not decided'}</strong></div><div class="metric-row"><span>Wine extension</span><strong>${state.winery.choice ? (state.winery.choice === 'house' ? 'House' : 'Mixed') : 'Not decided'}</strong></div></div></div><p class="muted" style="font-size:12px">The attached hotel case uses DKK. Bakery and winery are separate illustrative euro exercises. Export your notebook before clearing browser storage.</p></section></div>`;
+  <section class="panel full"><h2>Hotel demonstration · Saved rate</h2><p>${caseHotelComplete(state.caseHotel) ? 'Completed · Written reasoning awaits instructor review.' : 'Continue the hotel workspace to finish the main assignment.'}</p>${state.caseHotel.interpretation ? `<p>${eur(state.caseHotel.interpretation.price)} · ${fmt(state.caseHotel.interpretation.requested)} requested · ${fmt(state.caseHotel.interpretation.sold)} sold · ${eur(state.caseHotel.interpretation.revenue)} room revenue</p><p>${esc(state.caseHotel.interpretation.reflection)}</p>` : ''}${state.archives?.length ? '<p class="muted">Work from the previous hotel exercise is preserved in the exported notebook under archives.</p>' : ''}</section>
+  <section class="panel full"><h2>Current results</h2><div class="field-grid"><div><div class="metric-row"><span>Hotel TR and MR</span><strong>${state.caseHotel.mr ? 'Completed' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel elasticity</span><strong>${state.caseHotel.elasticity ? 'Reference elasticity checked' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel advice</span><strong>${state.caseHotel.interpretation ? 'Saved' : 'To write'}</strong></div></div><div><div class="metric-row"><span>Bakery extension</span><strong>${state.breakfast.decision ? `${state.breakfast.decision.bakers} bakers` : 'Not decided'}</strong></div><div class="metric-row"><span>Wine extension</span><strong>${state.winery.choice ? (state.winery.choice === 'house' ? 'House' : 'Mixed') : 'Not decided'}</strong></div></div></div><p class="muted" style="font-size:12px">The active hotel demonstration uses EUR and an 80-room limit. Bakery and winery are separate illustrative euro exercises. Export your notebook before clearing browser storage.</p></section></div>`;
 }
 function render() {
   if (town) { town.destroy(); town = null; }
@@ -410,13 +380,13 @@ function render() {
   if (state.view === 'town' || ROOM_IDS.includes(state.view)) {
     bindTouch();
     if (state.overlay) requestAnimationFrame(() => {
-      const selector = state.overlay === 'dialogue' ? state.mode === 'free' ? '#free-question-input' : '.scene-question' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
+      const selector = state.overlay === 'dialogue' ? '#free-question-input' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
       main.querySelector(selector)?.focus({ preventScroll: true });
     });
   }
 }
 function modeView() {
-  return `<section class="mode-picker" aria-labelledby="mode-title"><p class="eyebrow">Hotel Sole Nascente · Sirmione, Lake Garda</p><h1 id="mode-title">Investigate the hotel case</h1><p>Your main assignment is questions 4.1.1–4.1.4: price elasticity, income and cross-price elasticity, a multiple demand model and changing market conditions. Interview Lucia, Marco and Elena, then use the hotel workspace. Prices are in DKK; the hotel has 78 rooms.</p><p>Bakery, winery and street exercises are optional extensions with separate illustrative euro data. Choose how to interview the staff:</p><div class="mode-cards"><button type="button" data-mode="guided"><strong>Guided</strong><span>Choose prepared questions when you talk to someone.</span></button><button type="button" data-mode="free"><strong>Ask your own questions</strong><span>Write your questions. People share facts; you make the calculations and decisions.</span></button></div><small>You can change modes later. Your progress stays on this device. Export your notebook when you finish.</small></section>`;
+  return `<section class="mode-picker" aria-labelledby="mode-title"><p class="eyebrow">Hotel Sole Nascente · 80-room EUR demonstration</p><h1 id="mode-title">Investigate the hotel case</h1><p>Interview the hotel staff to collect two price–quantity observations. Derive demand yourself, then calculate TR, MR and price elasticity and test a room rate against the hotel's capacity.</p><p>Each actor has information appropriate to their role. Read their job descriptions and type your own questions. Bakery, winery and street exercises are optional, with separate illustrative data.</p><p><a href="student-case.html" target="_blank" rel="noopener">Read the student case brief</a></p><button type="button" class="button" data-mode="free">Start investigation</button><p><small>Your work stays on this device. Conversation memory lasts until you reload or restart; collected evidence remains in your notebook.</small></p></section>`;
 }
 function bindTouch() {
   document.querySelectorAll('[data-move]').forEach(button => {
@@ -429,6 +399,7 @@ function feedback(actor, message) { state[actor === 'bakery' ? 'breakfast' : act
 function handleForm(form) {
   const values = Object.fromEntries(new FormData(form));
   if (form.dataset.form.startsWith('case-hotel-')) {
+    if (!has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs'])) return;
     const result = evaluateCaseHotel(form.dataset.form, values, state.caseHotel);
     if (!result) return;
     state.caseHotel.feedback = result.feedback;
@@ -545,20 +516,19 @@ main.addEventListener('click', e => {
   if (review && state.caseHotel[review.dataset.caseStep]) {
     const step = review.dataset.caseStep;
     const result = state.caseHotel[step];
-    const formName = { mr: 'case-hotel-mr', elasticity: 'case-hotel-elasticity', interpretation: 'case-hotel-advice', demandModel: 'case-hotel-model', changes: 'case-hotel-changes' }[step];
-    if (!state.drafts[formName]) state.drafts[formName] = step === 'elasticity' ? { ...result.values, least: result.least, explanation: result.explanation || '' } : { ...result };
+    const formName = { demand: 'case-hotel-demand', mr: 'case-hotel-mr', elasticity: 'case-hotel-elasticity', interpretation: 'case-hotel-advice' }[step];
+    if (!state.drafts[formName]) state.drafts[formName] = step === 'interpretation' ? { ...result, predictedRequested: result.requested, predictedSold: result.sold, predictedRevenue: result.revenue } : { ...result };
     state.caseHotel.editing = step;
     state.caseHotel.feedback = '';
     state.actor = 'hotel'; state.view = 'hotel'; state.overlay = 'workspace';
     save(); render(); return;
   }
-  const mode = e.target.closest('[data-mode]'); if (mode) { state.mode = mode.dataset.mode; record('mode', 'game', `Selected ${state.mode} mode`); render(); return; }
+  const mode = e.target.closest('[data-mode]'); if (mode) { state.mode = 'free'; record('mode', 'game', 'Started free-text conversations'); render(); return; }
   const view = e.target.closest('[data-view]'); if (view) { go(view.dataset.view); return; }
   const place = e.target.closest('[data-visit]'); if (place) { visit(place.dataset.visit); return; }
   const street = e.target.closest('[data-street]'); if (street) { openStreet(street.dataset.street); return; }
   const streetChoiceButton = e.target.closest('[data-street-choice]'); if (streetChoiceButton) { chooseStreet(streetChoiceButton.dataset.streetChoice); return; }
   const person = e.target.closest('[data-person]'); if (person) { talkRoomPerson(person.dataset.person); return; }
-  const questionButton = e.target.closest('[data-question]'); if (questionButton) { question(state.actor, questionButton.dataset.question); return; }
   const color = e.target.closest('[data-color]'); if (color) { state.player.color = color.dataset.color; save(); render(); return; }
   const action = e.target.closest('[data-action]'); if (!action) return;
   if (action.dataset.action === 'change-mode') { state.mode = null; save(); render(); return; }
@@ -597,9 +567,6 @@ window.addEventListener('keydown', e => {
   if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay || (e.target instanceof Element && e.target.closest('input, textarea, select'))) return;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
   if (e.key === 'Escape') { closeOverlay(); return; }
-  if (state.mode !== 'guided' || state.overlay !== 'dialogue' || !['1', '2', '3'].includes(e.key)) return;
-  const choice = suggestedQuestions(state.actor)[Number(e.key) - 1];
-  if (choice) question(state.actor, choice);
 });
-document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); state = blank(); render(); toast('New simulation started'); });
+document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); conversationId=crypto.randomUUID(); state = blank(); render(); toast('New simulation started'); });
 render();
