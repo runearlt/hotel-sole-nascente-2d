@@ -4,7 +4,7 @@ import { converse } from '../server/server.js';
 import { providerResponse } from './mock-provider.mjs';
 
 const body = {personId:'lucia', question:'What is your reference room price?'};
-const modelResponse = text => providerResponse(text,['price']);
+const modelResponse = text => providerResponse(text+' Marco has another observation.',['price']);
 
 test('missing configuration is distinguishable from a model reply', async () => {
   let called = false;
