@@ -2,9 +2,9 @@ name: Student exercise checks
 
 on:
   pull_request:
-    branches: [development, main, working-version]
+    branches: [development, main, working-version, open-version-api, api-version]
   push:
-    branches: [development, main, working-version]
+    branches: [development, main, working-version, open-version-api, api-version]
   workflow_dispatch:
 
 permissions:
@@ -24,24 +24,12 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Check economics and movement rules
-        run: npm test
-      - name: Play the student exercises
-        run: |
-          node server/server.js &
-          server_pid=$!
-          trap 'kill $server_pid' EXIT
-          for attempt in $(seq 1 20); do
-            if curl --fail --silent http://127.0.0.1:8174/ >/dev/null; then break; fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:8174/ >/dev/null
-          npm run test:student
-          npm run test:simulation
-      - name: Keep screenshots when a journey fails
-        if: failure()
+      - name: Verify offline actor integration and student exercises
+        run: npm run test:offline
+      - name: Keep verification results and screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: student-journey-failure
+          name: offline-student-verification
           path: test-artifacts/
           if-no-files-found: ignore
