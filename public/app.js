@@ -145,7 +145,12 @@ function closeOverlay() {
   save(); render();
   document.querySelector('#town-canvas, #room-canvas')?.focus();
 }
-function openWorkspace() { state.overlay = 'workspace'; save(); render(); }
+function openWorkspace() {
+  state.mode ||= 'free';
+  if (!ROOM_IDS.includes(state.actor)) state.actor = 'hotel';
+  if (state.view !== 'town' && !ROOM_IDS.includes(state.view)) state.view = state.actor;
+  state.overlay = 'workspace'; save(); render(); window.scrollTo(0, 0);
+}
 function openDialogue() { state.overlay = 'dialogue'; save(); render(); }
 function talkRoomPerson(id) {
   const actor = state.view;
@@ -575,7 +580,10 @@ main.addEventListener('click', e => {
     const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'sole-bay-notebook.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 });
-document.querySelector('.tabs').addEventListener('click', e => { const button = e.target.closest('[data-view]'); if (button) go(button.dataset.view); });
+document.querySelector('.tabs').addEventListener('click', e => {
+  if (e.target.closest('[data-action="workspace"]')) { openWorkspace(); return; }
+  const button = e.target.closest('[data-view]'); if (button) go(button.dataset.view);
+});
 window.addEventListener('keydown', e => {
   if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay) return;
   if (e.key === 'Escape') { e.preventDefault(); closeOverlay(); return; }
