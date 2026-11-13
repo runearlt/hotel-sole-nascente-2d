@@ -64,7 +64,7 @@ test('optional exercise numbers are available, but not purchase totals or decisi
 });
 
 test('broad and vague questions offer topics without numerical evidence', () => {
-  for (const actor of ['lucia', 'marco', 'elena']) for (const question of ['What can you tell me about hotel bookings?', 'Tell me more']) {
+  for (const actor of ['lucia', 'marco', 'elena']) for (const question of ['What can you tell me about your work?', 'Tell me more']) {
     const reply = answerFreeQuestion(actor, question);
     assert.equal(reply.factId, null); assert.doesNotMatch(reply.answer, /\d/);
   }
@@ -93,4 +93,21 @@ test('repeated questions preserve facts and never disclose the second point', ()
   const first = answerFreeQuestion('lucia', 'What are your bookings?');
   const repeated = answerFreeQuestion('lucia', 'What are your bookings?', {history:[{question:'What are your bookings?',answer:first.answer}]});
   assert.equal(repeated.answer, first.answer); assert.doesNotMatch(repeated.answer,/190|54/);
+});
+
+ test('natural factual questions and follow-ups disclose complete hotel observations', () => {
+  for (const [actor, expected] of [['lucia', /170.*69/], ['marco', /190.*54/]]) {
+    for (const question of ['Tell me about your room prices', 'What can you tell me about hotel bookings?', 'How much is a room?', 'What is your nightly rate?', 'How many rooms were requested?', 'And the price?']) {
+      const reply=answerFreeQuestion(actor,question);
+      assert.match(reply.answer,expected,actor+': '+question);
+      assert.doesNotMatch(reply.answer,/262|196\.5|4\/3|[PQ]\s*=/);
+    }
+    const reply=answerFreeQuestion(actor,'How many?',{history:[{question:'What is your nightly rate?',answer:'Our observation.'}]});
+    assert.match(reply.answer,expected);
+  }
+ });
+
+test('pricing language and observation assumptions are available without keyword coaching',()=>{
+  for (const question of ['Can you share your pricing data?','Tell me about prices']) assert.match(answerFreeQuestion('lucia',question).answer,/170.*69/);
+  assert.match(answerFreeQuestion('lucia','What assumptions are behind the observation?').answer,/season.*booking window.*competitor.*service/);
 });
