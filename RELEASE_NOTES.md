@@ -1,13 +1,21 @@
-# API version
+# API version — supervised student pilot
 
-The conversation engine now lets the model interpret a free-text question, choose evidence from the selected actor's permitted card and compose a response. The server validates evidence and teaching boundaries before crediting progress. It no longer gives the model a fixed answer to rephrase.
+The deployed hotel uses the agreed 80-room EUR demonstration case. Lucia supplies €170 / 69 rooms requested; Marco supplies €190 / 54. Each holds only their own observation. Students derive demand, revenue, marginal revenue and elasticity themselves. Actors can confirm a submitted demand equation without supplying a corrected equation, and cannot compute solutions. Bakery and wine are optional independent illustrations.
 
-The daily model-attempt allowance is 400, covering the planned 350 daily prompts with room for testing.
+This audit corrected nonlinear equations being accepted as linear prefixes, equivalent equation notation, inconsistent rounding, blank values being treated as zero, premature worked-answer feedback, coupled bakery/wine forecasts, keyboard focus and Escape handling, duplicate chat submissions, common spelling errors, unsupported referrals and silent storage failures. Model responses are checked against role-specific evidence. Rejected responses use a visibly labelled factual fallback; missing information is acknowledged.
 
-The release keeps each actor's memory separate, gives Lucia and Marco only their own hotel observation, preserves student calculations, and provides a written student case. Optional exercises clarify the one-hour bakery batch, zero resale value for surplus rolls, shared wine bottles and the predefined estate-first mixed plan.
+Verification: 58 unit/HTTP tests; desktop and phone browser journeys; 100 varied synthetic student journeys completed, including 20 simulated outage recoveries. No deliberately wrong tested calculation was accepted. Offline checks made zero paid calls. Synthetic timing estimates are not measured student completion times.
 
-`ACTOR_API_MODE=offline` is the default, including when a secret key is already configured. Visible labels distinguish AI, offline test simulation, student-work rules and case-fact fallback. Timeouts, conservative call limits, bounded memory and explicit live-test consent are implemented.
+The approved hosted audit used 24 requests: 16 verified model replies, four labelled factual fallbacks and four deterministic student-work boundaries. All 24 functional checks passed. The initial sample revealed an unsupported referral; the final four checks verified its correction. Live API operation was verified against Render production commit 35a2438085fbcba4a6ee226cea15ee5d2fa1c7e6, with the key configured and live mode enabled. GET /api/status now exposes the deployed commit without exposing secrets. Status alone does not prove provider success; the live response IDs do.
 
-Verified offline: 48 unit/HTTP tests, desktop and phone journeys, 100 independent synthetic student profiles, 1,500 mock replies with zero unintended fallbacks, and an isolated production install/start. No deliberately wrong tested calculation or profit claim was accepted. Paid model calls: zero. See `tests/OFFLINE_VERIFICATION.json` and `PREPARATION_AUDIT.md` for evidence and limits.
+Run npm ci, then npm run test:offline for reproducible unpaid checks. Live scripts require explicit --allow-paid approval. Render retains the default 400 model-attempt daily cap. Never put an API key in GitHub or browser code.
 
-Start locally with `npm ci` and `npm run start:offline`. Reproduce the full checks with `npm run test:offline`. Follow `RENDER_ACTIVATION.md` to deploy offline and later activate funded requests. Live model behaviour and hosted deployment remain unverified in this release.
+Pilot checklist:
+- Ask Lucia and Marco separately for price and rooms requested; repeat with natural wording and a typo.
+- Derive demand in the workspace, try an incorrect answer, then revise it.
+- Complete revenue and elasticity work independently; ask Elena about capacity and unavailable costs.
+- Explore optional bakery/wine assumptions, quantities and units without asking actors for solutions.
+- Export the notebook, reload and verify saved progress; restart only after exporting.
+- Record confusing replies and their source label, and have an instructor review written reasoning.
+
+Limits: this is suitable for a supervised formative pilot, not a secure examination. Browser-delivered checks can be inspected. Synthetic tests do not establish learning outcomes. Free Render cold starts and provider failures can trigger labelled fallbacks. AI wording can still vary; instructors should monitor initial sessions.
