@@ -3,6 +3,7 @@ import { bakeryOutcome, wineOutcome, eur, round } from './economics.js';
 import { Town, STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
 import { BusinessInterior, ROOM_STAFF } from './interior.js';
 import { answerFreeQuestion, FREE_AGENTS } from './free-agents.js';
+import { numericInput } from './input-checks.js';
 import { blankCaseHotel, caseHotelTask, evaluateCaseHotel, caseHotelComplete, caseHotelStage } from './case-hotel.js';
 
 const KEY = 'sole-bay-simulation-v1';
@@ -54,13 +55,14 @@ if (stored && stored.mapVersion !== 2) {
 }
 state.scratchpads ||= {};
 for (const actor of ['hotel', 'bakery', 'winery']) state.scratchpads[actor] = { ...emptyScratch(), ...state.scratchpads[actor] };
-let town = null, interior = null, toastTimer = null, lastMoveSave = 0;
+let town = null, interior = null, toastTimer = null, lastMoveSave = 0, storageUnavailable = false;
+const pendingQuestions = new Map();
 const conversations = new Map(); // Per actor, current page session only; notebook evidence stays saved.
 let conversationId=crypto.randomUUID();
 const roomPerson = (actor = state.actor) => ROOM_STAFF[actor]?.[state.roomPeople[actor]];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const fmt = n => Number.isFinite(n) ? round(n, 2).toString() : '—';
-function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* Storage can be unavailable in private mode. */ } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); storageUnavailable=false; } catch { storageUnavailable=true; } }
 function captureDraft(form) {
   if (!form?.matches('[data-form]') || form.dataset.form === 'free-question') return;
   state.drafts[form.dataset.form] = Object.fromEntries(new FormData(form));
@@ -95,6 +97,9 @@ async function askFree(text) {
   const input = String(text || '').trim().slice(0, 400);
   if (!input) return;
   const actor = state.actor, personId = state.roomPeople[actor], requestState = state;
+  if (pendingQuestions.has(personId)) return;
+  pendingQuestions.set(personId, { input, requestState });
+  render();
   const history = (conversations.get(personId) || []).slice(-6);
   const fallback = () => answerFreeQuestion(personId, input, { nextPeriodGuests: nextPeriodGuests(), history });
   let result;
@@ -110,6 +115,7 @@ async function askFree(text) {
     result = await response.json();
     if (typeof result.answer !== 'string' || result.answer.length > 800) throw new Error('Invalid actor response');
   } catch (error) { result = { ...fallback(), source: 'fallback', reason: error.reason || (error.name === 'TimeoutError' ? 'api_timeout' : 'endpoint_unavailable'), requestId: error.requestId }; }
+  if (pendingQuestions.get(personId)?.requestState === requestState) pendingQuestions.delete(personId);
   if (state !== requestState) return;
   conversations.set(personId, [...history, { question: input, answer: result.answer, source: result.source, reason: result.reason }]);
   const permitted = new Set(FREE_AGENTS[personId].facts.map(fact => fact.id));
@@ -175,7 +181,7 @@ function nextTask() {
   if (!state.caseHotel.interpretation) return { actor: 'hotel', label: 'Advise the hotel', action: 'Predict demand, capped sales and room revenue for your chosen rate.' };
   return { actor: 'hotel', label: 'Hotel case complete · Review your notebook', action: 'Export your work for discussion. Bakery, wine and street practice are optional extensions.' };
 }
-function nextPeriodGuests() { return SCENARIO.breakfast.guests; }
+function nextPeriodGuests() { return SCENARIO.wine.dinnerGuests - SCENARIO.wine.outsideDiners; }
 function dinnerBottles() { return Math.ceil((nextPeriodGuests() + SCENARIO.wine.outsideDiners) * SCENARIO.wine.bottlesPerDiner); }
 function townView() {
   const task = nextTask();
@@ -219,16 +225,17 @@ function dialogueOverlay() {
   const id = state.actor, actor = ACTORS[id], current = state.replies[id];
   const speaker = ROOM_IDS.includes(state.view) ? roomPerson(id) : actor;
   const turns = (conversations.get(state.roomPeople[id]) || []).slice(-4).reverse().map(turn => ({ detail: turn.question, data: { answer: turn.answer, source: turn.source, reason: turn.reason } }));
+  const pending = pendingQuestions.get(state.roomPeople[id]);
   const latest = turns[0]?.data;
   const fallbackLabels = {offline_mode:'Offline mode',missing_api_key:'AI is not configured',model_output_rejected:'AI response did not meet case rules',daily_limit:'Daily AI call limit reached',concurrency_limit:'AI temporarily busy',session_rate_limit:'Please pause before asking again',ip_rate_limit:'AI temporarily busy',authentication_error:'AI connection needs attention'};
   const replyLabel = latest?.source === 'model' ? 'AI reply' : latest?.source === 'mock' ? 'Simulated reply · Offline test' : latest?.source === 'boundary' ? 'Case reply · Student-work rule' : latest ? `Case reply · ${fallbackLabels[latest.reason] || 'AI unavailable'}` : '';
   return `<div class="scene-shade"></div><section class="scene-dialogue business-${id}" role="dialog" aria-modal="true" aria-label="Conversation with ${esc(speaker.name)}">
     <div class="scene-dialogue-head"><span>${esc(speaker.name)} · ${esc(speaker.role)}</span><button type="button" data-action="close-overlay" aria-label="Close conversation" title="Close conversation">×</button></div>
     <div class="scene-interior ${id}" aria-hidden="true"><i></i><b></b><em></em></div>
-    ${turns.length ? `<div class="student-turn"><b>You asked:</b> ${esc(turns[0].detail)}</div>` : ''}<div class="scene-speech"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(turns[0]?.data.answer || speaker.introduction)}</p></div>
-    ${replyLabel ? `<small class="reply-source" role="status">${esc(replyLabel)}</small>` : ''}
+    ${turns.length ? `<div class="student-turn"><b>You asked:</b> ${esc(turns[0].detail)}</div>` : ''}<div class="scene-speech" aria-live="polite"><div class="scene-avatar ${id}" aria-hidden="true"><span></span><i></i></div><p>${esc(turns[0]?.data.answer || speaker.introduction)}</p></div>
+    ${pending ? '<small role="status">Waiting for a reply… You can close this conversation while it loads.</small>' : ''}${replyLabel ? `<small class="reply-source" role="status">${esc(replyLabel)}</small>` : ''}
     ${turns.length > 1 ? `<details class="conversation-history"><summary>Earlier in this conversation</summary>${turns.slice(1).reverse().map(row => `<p><b>You:</b> ${esc(row.detail)}<br><b>${esc(speaker.name)}:</b> ${esc(row.data.answer)}</p>`).join('')}</details>` : ''}
-    <form class="free-question" data-form="free-question"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required placeholder="Type your own question…"><button type="submit">Ask</button></div><small>Ask for facts; you work out the calculation and decision.</small></form>
+    <form class="free-question" data-form="free-question" aria-busy="${Boolean(pending)}"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required value="${esc(pending?.input || '')}" ${pending ? 'disabled' : ''} placeholder="Type your own question…"><button type="submit" ${pending ? 'disabled' : ''}>${pending ? 'Waiting…' : 'Ask'}</button></div><small>Ask for facts; you work out the calculation and decision.</small></form>
     <div class="scene-dialogue-foot"><button type="button" class="scene-primary" data-action="workspace">Open ${id === 'hotel' ? 'hotel case' : id === 'bakery' ? 'production' : 'purchasing'} workspace →</button><button type="button" data-view="notebook" class="scene-secondary">Notebook</button></div>
   </section>`;
 }
@@ -309,7 +316,7 @@ function bakeryTask() {
   } else {
     body += `<h2>${tested.size < 3 ? 'Calculate a production plan' : 'Choose a plan you can defend'}</h2><p>Use the figures you gathered to calculate extra output, order cost, and guests served. Test all three plans before choosing.</p><div class="scroll-table"><table class="observation-table"><tr><th>Bakers</th><th>Rolls from one oven</th></tr>${SCENARIO.breakfast.plans.map(plan => `<tr><td>${plan.bakers}</td><td>${plan.rolls}</td></tr>`).join('')}</table></div><p class="muted">Hotel order: ${SCENARIO.breakfast.guests} rolls · Labour: €20 per baker for a one-hour breakfast batch · Ingredients: €0.60 per roll produced. Surplus rolls have no resale value in this contract.</p><div class="step-list">${SCENARIO.breakfast.plans.map(plan => `<div class="step ${tested.has(plan.bakers) ? 'done' : ''}"><b>${tested.has(plan.bakers) ? '✓' : '•'}</b><span>${plan.bakers} baker${plan.bakers > 1 ? 's' : ''} ${tested.has(plan.bakers) ? 'tested' : 'to test'}</span></div>`).join('')}</div>
     <form data-form="bakery-test"><label class="field">Bakers scheduled<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${nextBakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><div class="field-grid"><label class="field">Extra rolls from this baker<input name="predictedExtra" type="number" min="0" step="any" required placeholder="Difference from prior plan"></label><label class="field">Predicted order cost (€)<input name="predictedCost" type="number" min="0" step="any" required placeholder="Labour + ingredients"></label><label class="field">Predicted guests served<input name="prediction" type="number" min="0" max="60" step="any" required placeholder="At most 60"></label></div><button class="button">Test this production plan</button></form>`;
-    if (b.runs.length) body += `<details class="prior-tests"><summary>Review tested plans (${tested.size}/3 verified)</summary><div class="scroll-table"><table class="data-table"><tr><th>Bakers</th><th>Your extra</th><th>Actual extra</th><th>Served</th><th>Order cost</th><th>Status</th></tr>${b.runs.map(r => `<tr><td>${r.bakers}</td><td>${fmt(r.predictions?.extraOutput)}</td><td>${r.extraOutput ?? r.rolls - (SCENARIO.breakfast.plans[r.bakers - 2]?.rolls ?? 0)}</td><td>${r.served}</td><td>${eur(r.orderCost)}</td><td>${r.verified === false ? 'Re-test' : 'Checked'}</td></tr>`).join('')}</table></div></details>`;
+    if (b.runs.length) body += `<details class="prior-tests"><summary>Review tested plans (${tested.size}/3 verified)</summary><div class="scroll-table"><table class="data-table"><tr><th>Bakers</th><th>Your extra</th><th>Actual extra</th><th>Served</th><th>Order cost</th><th>Status</th></tr>${b.runs.map(r => `<tr><td>${r.bakers}</td><td>${fmt(r.predictions?.extraOutput)}</td><td>${r.verified ? r.extraOutput : '—'}</td><td>${r.verified ? r.served : '—'}</td><td>${r.verified ? eur(r.orderCost) : '—'}</td><td>${r.verified === false ? 'Re-test' : 'Checked'}</td></tr>`).join('')}</table></div></details>`;
     if (tested.size === 3) body += `<hr class="section-rule"><h3>Final breakfast order</h3><p>Which plan best balances service with cost? You can still test another option first.</p><form data-form="bakery-decide"><label class="field">Choose number of bakers<select name="bakers">${SCENARIO.breakfast.plans.map(p => `<option value="${p.bakers}" ${b.decision?.bakers === p.bakers ? 'selected' : ''}>${p.bakers} baker${p.bakers > 1 ? 's' : ''}</option>`).join('')}</select></label><label class="field">Explain your decision<textarea name="reason" required placeholder="Compare extra output, guests served, costs, and the fixed oven...">${esc(b.decision?.reason || '')}</textarea></label><button class="button">${b.decision ? 'Update order' : 'Commit breakfast order'}</button></form>`;
     if (b.decision) body += `<div class="notice"><b>Current order:</b> ${b.decision.bakers} bakers serve ${b.decision.served}/60 guests. Contribution from this breakfast contract is ${eur(b.decision.contribution)}, not total hotel profit.</div>${reflectionForm('bakery', b.decision.reflection)}`;
   }
@@ -342,8 +349,8 @@ function hintText(actor) {
     complete: ['Review your saved reasoning in the notebook.', 'Check that your units and assumptions are clear.', 'Export your notebook for discussion with your instructor.']
   };
   const hints = actor === 'hotel' ? hotelHints[stage]
-    : actor === 'bakery' ? ['Compare extra output from each additional baker.', 'A third baker adds five rolls, but the hotel has only 60 guests.', 'Compare the contribution for each plan: breakfast revenue minus the bread order cost.']
-    : ['The estate can provide only 30 bottles.', `Calculate the total purchase cost for each ${dinnerBottles()}-bottle plan.`, 'A tasting score is not a measured willingness to pay.'];
+    : actor === 'bakery' ? ['Compare extra output from each additional baker.', 'Compare each crew’s output with the order; extra production may not serve additional guests.', 'Compare the contribution for each plan: breakfast revenue minus the bread order cost.']
+    : ['The estate can provide only 30 bottles.', 'First calculate the bottle requirement from the dinner forecast and sharing assumption.', 'A tasting score is not a measured willingness to pay.'];
   return `<div class="hint-box">Hint ${Math.min(level, 3)}: ${esc(hints[Math.min(level, 3) - 1])}</div>`;
 }
 function notebookView() {
@@ -351,7 +358,7 @@ function notebookView() {
   const work = state.log.filter(e => e.kind !== 'question' && e.kind !== 'visit');
   const returnPlace = ROOM_IDS.includes(state.notebookReturn) ? state.notebookReturn : 'town';
   const elasticityWork = state.caseHotel.elasticity;
-  return `<div class="screen-head"><div><p class="eyebrow">Saved on this device</p><h1>Field notebook</h1></div><div class="button-row"><button class="button secondary" data-view="${returnPlace}">← ${returnPlace[0].toUpperCase() + returnPlace.slice(1)}</button><button class="button" data-action="export">Export JSON ↓</button></div></div>
+  return `<div class="screen-head"><div><p class="eyebrow">${storageUnavailable ? 'Kept in this tab only' : 'Saved on this device'}</p><h1>Field notebook</h1></div><div class="button-row"><button class="button secondary" data-view="${returnPlace}">← ${returnPlace[0].toUpperCase() + returnPlace.slice(1)}</button><button class="button" data-action="export">Export JSON ↓</button></div></div>
   ${elasticityWork ? `<section class="panel"><h2>Price elasticity at €170</h2><p>Your elasticity: ${esc(elasticityWork.value)}</p><p>${esc(elasticityWork.explanation)}</p></section>` : ''}<div class="notebook-grid"><section class="panel"><h2>Evidence and interviews</h2>${interviews.length ? interviews.map(entry => `<div class="entry"><strong>${esc(entry.data?.speaker || entry.actor)} · ${esc(entry.detail)}</strong><p>${esc(entry.data?.answer || '')}</p></div>`).join('') : '<p class="empty">Interview the hotel staff to begin.</p>'}</section>
   <section class="panel"><h2>Models, tests, and decisions</h2>${work.length ? work.map(e => `<div class="entry"><strong>${esc(e.kind.replaceAll('_',' '))} · ${esc(ACTORS[e.actor]?.name || e.actor)}</strong><p>${esc(e.detail)}</p><small>${new Date(e.at).toLocaleString()}</small></div>`).join('') : '<p class="empty">Your proposals, tests, revisions, hints, and decisions will appear here.</p>'}</section>
   <section class="panel full"><h2>Hotel demonstration · Saved rate</h2><p>${caseHotelComplete(state.caseHotel) ? 'Completed · Written reasoning awaits instructor review.' : 'Continue the hotel workspace to finish the main assignment.'}</p>${state.caseHotel.interpretation ? `<p>${eur(state.caseHotel.interpretation.price)} · ${fmt(state.caseHotel.interpretation.requested)} requested · ${fmt(state.caseHotel.interpretation.sold)} sold · ${eur(state.caseHotel.interpretation.revenue)} room revenue</p><p>${esc(state.caseHotel.interpretation.reflection)}</p>` : ''}${state.archives?.length ? '<p class="muted">Work from the previous hotel exercise is preserved in the exported notebook under archives.</p>' : ''}</section>
@@ -363,6 +370,7 @@ function render() {
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
   document.querySelector('#notebook-count').textContent = state.log.length;
   main.innerHTML = !state.mode ? modeView() : state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
+  if (storageUnavailable) main.insertAdjacentHTML('afterbegin', '<p class="notice" role="status">Browser storage is unavailable. Keep this tab open and export your notebook before leaving; your work cannot survive a reload.</p>');
   restoreDrafts();
   if (!state.mode) return;
   if (state.view === 'town') {
@@ -380,6 +388,7 @@ function render() {
   if (state.view === 'town' || ROOM_IDS.includes(state.view)) {
     bindTouch();
     if (state.overlay) requestAnimationFrame(() => {
+      if (main.querySelector('[role="dialog"]')?.contains(document.activeElement)) return;
       const selector = state.overlay === 'dialogue' ? '#free-question-input' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
       main.querySelector(selector)?.focus({ preventScroll: true });
     });
@@ -415,7 +424,7 @@ function handleForm(form) {
     const reflection = String(values.reflection || '').trim();
     if (reflection.length < 25) return feedback(reflectionActor, 'Use the result to explain what you would keep or revise.');
     const decision = reflectionActor === 'bakery' ? state.breakfast.decision : state.winery;
-    if (!decision) return;
+    if (!decision || (reflectionActor === 'winery' && !decision.choice)) return;
     decision.reflection = reflection;
     delete state.drafts[form.dataset.form];
     record('reflection', reflectionActor, reflection);
@@ -423,23 +432,26 @@ function handleForm(form) {
   }
   switch (form.dataset.form) {
     case 'bakery-test': {
-      const bakers = Number(values.bakers), prediction = Number(values.prediction);
+      const bakers = Number(values.bakers), prediction = numericInput(values.prediction);
+      if (!has('bakery', ['order', 'cost', 'one', 'two', 'three'])) return feedback('bakery', 'Collect the order, costs and crew observations first.');
       const plan = SCENARIO.breakfast.plans.find(p => p.bakers === bakers);
       if (!plan) return;
       const previousRolls = SCENARIO.breakfast.plans.find(p => p.bakers === bakers - 1)?.rolls ?? 0;
       const extraOutput = plan.rolls - previousRolls;
-      const predictions = { extraOutput: Number(values.predictedExtra), orderCost: Number(values.predictedCost), served: prediction };
-      if (Object.values(predictions).some(value => !Number.isFinite(value))) return feedback('bakery', 'Enter a valid number for each calculation.');
+      const predictions = { extraOutput: numericInput(values.predictedExtra), orderCost: numericInput(values.predictedCost), served: prediction };
+      if (Object.values(predictions).some(value => !Number.isFinite(value)) || !Number.isInteger(predictions.extraOutput) || !Number.isInteger(predictions.served)) return feedback('bakery', 'Enter whole roll and guest counts, and a valid order cost.');
       const outcome = bakeryOutcome(plan);
-      const errors = [['extra output', predictions.extraOutput, extraOutput], ['order cost', predictions.orderCost, outcome.orderCost], ['guests served', predictions.served, outcome.served]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .1).map(([label]) => label);
+      const errors = [['extra output', predictions.extraOutput, extraOutput], ['order cost', predictions.orderCost, outcome.orderCost], ['guests served', predictions.served, outcome.served]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .02).map(([label]) => label);
       const result = { ...outcome, extraOutput, predictions, prediction, verified: errors.length === 0, at: new Date().toISOString() };
       if (result.verified) delete state.drafts[form.dataset.form];
       state.breakfast.runs.push(result);
-      record('prediction_test', 'bakery', `${bakers} bakers: predicted ${fmt(predictions.extraOutput)} extra rolls, ${eur(predictions.orderCost)} cost, ${fmt(prediction)} served; model ${result.rolls} rolls, ${extraOutput} extra, ${eur(result.orderCost)} cost, ${result.served} served.`, result);
-      return feedback('bakery', `${errors.length ? 'Check' : 'Good test'}: ${bakers} baker${bakers > 1 ? 's' : ''} produce ${result.rolls} rolls; the added baker contributes ${extraOutput}. Cost is ${eur(result.orderCost)} and ${result.served} guests are served. ${errors.length ? `Recheck your ${errors.join(', ')} and re-test this plan before deciding.` : 'Your calculations were close.'}`);
+      record('prediction_test', 'bakery', `${bakers} bakers: predicted ${fmt(predictions.extraOutput)} extra rolls, ${eur(predictions.orderCost)} cost, ${fmt(prediction)} served. ${errors.length ? 'Recheck the calculations before this plan is verified.' : `Verified: ${result.rolls} rolls, ${extraOutput} extra, ${eur(result.orderCost)} cost, ${result.served} served.`}`, result);
+      return feedback('bakery', errors.length ? `Recheck your ${errors.join(', ')} against the crew observations, unit costs and order size. Re-test before deciding.` : `Good test: ${bakers} bakers produce ${result.rolls} rolls; extra output ${extraOutput}, cost ${eur(result.orderCost)}, ${result.served} guests served.`);
     }
     case 'bakery-decide': {
-      const bakers = Number(values.bakers), reason = String(values.reason).trim();
+      const bakers = Number(values.bakers), reason = String(values.reason || '').trim();
+      if (!SCENARIO.breakfast.plans.every(plan => state.breakfast.runs.some(run => run.verified && run.bakers === plan.bakers))) return feedback('bakery', 'Correctly test all three crews before choosing.');
+      if (!SCENARIO.breakfast.plans.some(plan => plan.bakers === bakers)) return feedback('bakery', 'Choose one of the listed crews.');
       if (reason.length < 25) return feedback('bakery', 'Explain why the extra output is or is not worth its extra cost.');
       delete state.drafts[form.dataset.form];
       const result = bakeryOutcome(SCENARIO.breakfast.plans.find(p => p.bakers === bakers));
@@ -449,16 +461,17 @@ function handleForm(form) {
       return feedback('bakery', `Saved: your plan serves ${result.served}/60 guests. ${result.contribution === best ? 'It has the highest contribution of these three plans.' : `A different plan reaches ${eur(best)} contribution; compare marginal benefit and cost.`}`);
     }
     case 'winery-decide': {
-      const choice = values.choice, reason = String(values.reason).trim();
+      const choice = values.choice, reason = String(values.reason || '').trim();
+      if (!has('winery', ['options', 'stock', 'forecast'])) return feedback('winery', 'Collect prices, stock and forecast assumptions first.');
       if (!['house','mixed'].includes(choice)) { toast('Choose one wine plan.'); return; }
       if (reason.length < 25) { toast('Explain cost, availability, and remaining uncertainty.'); return; }
       const outcome = wineOutcome(choice, SCENARIO.wine, dinnerBottles());
-      const predictions = { estate: Number(values.predictedEstate), house: Number(values.predictedHouse), cost: Number(values.predictedCost) };
-      if (Object.values(predictions).some(value => !Number.isFinite(value))) { toast('Enter valid quantities and purchase cost.'); return; }
-      const errors = [['estate bottles', predictions.estate, outcome.estate], ['house bottles', predictions.house, outcome.house], ['purchase cost', predictions.cost, outcome.cost]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .1).map(([label]) => label);
+      const predictions = { estate: numericInput(values.predictedEstate), house: numericInput(values.predictedHouse), cost: numericInput(values.predictedCost) };
+      if (Object.values(predictions).some(value => !Number.isFinite(value)) || !Number.isInteger(predictions.estate) || !Number.isInteger(predictions.house)) { toast('Enter whole bottle quantities and a valid purchase cost.'); return; }
+      const errors = [['estate bottles', predictions.estate, outcome.estate], ['house bottles', predictions.house, outcome.house], ['purchase cost', predictions.cost, outcome.cost]].filter(([, predicted, actual]) => Math.abs(predicted - actual) > .02).map(([label]) => label);
       if (errors.length) {
-        record('purchase_check', 'winery', `${choice} plan: predicted ${predictions.estate} estate + ${predictions.house} house at ${eur(predictions.cost)}; required ${outcome.estate} estate + ${outcome.house} house at ${eur(outcome.cost)}.`, { predictions, outcome });
-        return feedback('winery', `Check your ${errors.join(', ')}. This plan needs ${outcome.estate} estate and ${outcome.house} house bottles at ${eur(outcome.cost)}. Recalculate before saving the order.`);
+        record('purchase_check', 'winery', `${choice} plan: predicted ${predictions.estate} estate + ${predictions.house} house at ${eur(predictions.cost)}; calculation not yet verified.`, { predictions, outcome });
+        return feedback('winery', `Check your ${errors.join(', ')}. Use the dinner forecast, bottle-sharing assumption, stock limit and unit prices. Recalculate before saving the order.`);
       }
       state.winery = { choice, reason, ...outcome, predictions, needsReview: false, feedback: 'Saved. Your purchase calculations were close.', at: new Date().toISOString() };
       delete state.drafts[form.dataset.form];
@@ -564,9 +577,15 @@ main.addEventListener('click', e => {
 });
 document.querySelector('.tabs').addEventListener('click', e => { const button = e.target.closest('[data-view]'); if (button) go(button.dataset.view); });
 window.addEventListener('keydown', e => {
-  if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay || (e.target instanceof Element && e.target.closest('input, textarea, select'))) return;
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
-  if (e.key === 'Escape') { closeOverlay(); return; }
+  if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeOverlay(); return; }
+  const dialog=main.querySelector('[role="dialog"]');
+  if (e.key === 'Tab' && dialog) {
+    const controls=[...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]')].filter(el=>el.getClientRects().length);
+    const first=controls[0],last=controls.at(-1);
+    if (first && (!dialog.contains(document.activeElement) || (e.shiftKey && document.activeElement===first) || (!e.shiftKey && document.activeElement===last))) {e.preventDefault();(e.shiftKey?last:first).focus();}
+  }
+  if (!(e.target instanceof Element && e.target.closest('input, textarea, select')) && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
-document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); conversationId=crypto.randomUUID(); state = blank(); render(); toast('New simulation started'); });
+document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); pendingQuestions.clear(); conversationId=crypto.randomUUID(); state = blank(); render(); toast('New simulation started'); });
 render();
