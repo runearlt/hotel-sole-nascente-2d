@@ -9,7 +9,7 @@ import { providerResponse } from './mock-provider.mjs';
 const explanation = 'Demand and price percentage changes are compared while other conditions stay fixed. Capacity limits actual sales but not requested rooms.';
 const rate = { price: 170, predictedRequested: 69, predictedSold: 69, predictedRevenue: 11730, profitClaim: 'no', reflection: explanation };
 const ready = () => { const progress = blankCaseHotel(); evaluateCaseHotel('case-hotel-demand', { intercept: 262, slope: -4/3 }, progress); evaluateCaseHotel('case-hotel-mr', { tr: -4 / 3, mr: -8 / 3 }, progress); evaluateCaseHotel('case-hotel-elasticity', { value: -1.85, explanation }, progress); return progress; };
-const response = text => async () => providerResponse(text, /190/.test(text)?['other']:/170/.test(text)?['price']:[]);
+const response = text => async () => providerResponse(text+(/190/.test(text)?' Lucia has the other observation.':' Marco has the other observation.'), /190/.test(text)?['other']:/170/.test(text)?['price']:[]);
 
 test('active hotel exactly matches the linked EUR demonstration', () => {
   assert.equal(HOTEL_CASE.rooms, 80);
