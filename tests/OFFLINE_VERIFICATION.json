@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-12T16:05:05.054Z",
+  "timestamp": "2026-11-13T00:41:27.397Z",
   "mode": "offline-mocked-provider",
   "paidCalls": 0,
   "liveProviderVerified": false,
@@ -18,100 +18,86 @@
     }
   ],
   "stats": {
-    "mockProviderCalls": 1540,
+    "mockProviderCalls": 1555,
     "realProviderCalls": 0,
     "sources": {
-      "mock": 1540,
+      "mock": 1555,
       "boundary": 2
     },
     "fallbackReasons": {}
   },
   "passed": true,
-  "unitTests": 48,
+  "unitTests": 58,
   "browserViewports": [
     "1280x800",
     "390x844"
   ],
   "simulation": {
+    "kind": "synthetic-browser-playthroughs",
+    "seed": 20261028,
+    "url": "http://127.0.0.1:62543/",
     "count": 100,
     "completed": 100,
     "actorReplySources": {
-      "mock": 1500,
+      "mock": 1515,
       "boundary": 0,
-      "fallback": 0,
+      "fallback": 20,
       "model": 0
     },
-    "incorrectAnswersAccepted": {
-      "wrongDemandFunctionsAccepted": 0,
-      "wrongElasticitiesAccepted": 0,
-      "wrongTRCoefficientsAccepted": 0,
-      "wrongMRCoefficientsAccepted": 0,
-      "wrongBakeryPlansAccepted": 0,
-      "wrongWineCostsAccepted": 0,
-      "wrongProfitClaimsAccepted": 0
-    }
+    "typicalMedianEstimatedMinutes": 38.7,
+    "allMedianEstimatedMinutes": 38.7,
+    "allP75EstimatedMinutes": 40.5,
+    "wrongDemandFunctionsAccepted": 0,
+    "wrongElasticitiesAccepted": 0,
+    "wrongTRCoefficientsAccepted": 0,
+    "wrongMRCoefficientsAccepted": 0,
+    "wrongBakeryPlansAccepted": 0,
+    "wrongWineCostsAccepted": 0,
+    "wrongProfitClaimsAccepted": 0,
+    "totalHints": 164,
+    "totalRetries": 519,
+    "optionalStreetSolved": 27,
+    "byAbility": {
+      "novice": {
+        "count": 20,
+        "completed": 20,
+        "medianEstimatedMinutes": 43.8
+      },
+      "typical": {
+        "count": 60,
+        "completed": 60,
+        "medianEstimatedMinutes": 38.7
+      },
+      "advanced": {
+        "count": 20,
+        "completed": 20,
+        "medianEstimatedMinutes": 35.25
+      }
+    },
+    "outageRecoveries": 20,
+    "failures": []
   },
   "production": {
     "productionInstall": "npm ci --omit=dev --offline --no-audit --no-fund",
-    "installPassed": true,
-    "productionStart": "npm start",
     "startPassed": true,
-    "paidCalls": 0,
-    "liveProviderVerified": false,
-    "checks": [
-      {
-        "path": "/",
-        "status": 200
-      },
-      {
-        "path": "/student-case.html",
-        "status": 200
-      },
-      {
-        "path": "/api/status",
-        "status": 200
-      },
-      {
-        "actor": "lucia",
-        "source": "fallback",
-        "reason": "offline_mode"
-      },
-      {
-        "actor": "marco",
-        "source": "fallback",
-        "reason": "offline_mode"
-      },
-      {
-        "actor": "elena",
-        "source": "fallback",
-        "reason": "offline_mode"
-      },
-      {
-        "actor": "marta",
-        "source": "fallback",
-        "reason": "offline_mode"
-      }
-    ]
+    "offlineFallbackPassed": true,
+    "paidCalls": 0
   },
   "sourceSha256": {
-    "server/server.js": "223885e9921aaff93688f971af7bb697b2e60514884148ec4216279325b7935d",
-    "server/runtime-config.js": "b130d60f7f210bfbb97c26f18c63d35c8c80fecf43cfc295b0f74d33c78f43ae",
-    "server/actor-api.js": "76fcddfd2676be80e34cbbef3eddd0d05102f2db1e2d210048ebce00b48a5005",
+    "public/app.js": "cacce6ef6cf171983a9c6381282e4c516f9b7eeb57a7ddde3a64e3a32dc25db7",
+    "public/case-hotel.js": "db7879d99541766b812ce6c20285fda6db4f2888479681159fcd7763caed7251",
+    "public/config.js": "e704467aaf9a5290ddd50cddbbde6ffe0eb8d576c2091f948df38a00024253ea",
+    "public/demand-check.js": "44f256c914a1a8128830faa857483b2130760228f48064a6a646c62db6b536d9",
+    "public/economics.js": "d79f32f801781fba9a6ebca1929d2352d855ba978594064ec053ecacb7369a86",
+    "public/free-agents.js": "6cb9ef864d24901a336b91b29b5833e2104d6af0269817cff1354db99c764899",
+    "public/hotel-demo.js": "12058172f2dc3fa16f61ef31e5fa86523e7d35c0bfccfca19598fd5a8ef25149",
+    "public/input-checks.js": "0d6c1aa940adad1bd9c6fd12173dc4119549408c601fdeac9a8fe2bd9656f794",
+    "public/interior.js": "78d06ce3c0da60f06bd3370890b9c787e57869894e87957d978b85a5b2503538",
+    "public/town.js": "724d11280e15685b2514a7ad960c4ac5b04f108bbc8f61a9f9764f984574d269",
+    "server/actor-api.js": "bf5fa2371d319ae7871ad31948002b3c576ca72b7aa8b8b1e7e5b416296d4c04",
     "server/conversations.js": "7cc1db7eacc9916794843e0a846f2c260129aa4a97f357452492609e5a6d38f8",
     "server/role-cards.js": "9cdb6af3b186789c02eafbee6cb7bf87857df18a38d45d3fd04f5e4cb8b4ee41",
-    "public/interior.js": "78d06ce3c0da60f06bd3370890b9c787e57869894e87957d978b85a5b2503538",
-    "public/demand-check.js": "ada082236bfd6deadfc0013a680a4269bfacd9975009e7372e25ed1147e11f2d",
-    "public/case-hotel.js": "57da1fea4d646d548808879b40f6bed59dc7e4f17ce7739106d43536f2f0ee53",
-    "public/hotel-demo.js": "12058172f2dc3fa16f61ef31e5fa86523e7d35c0bfccfca19598fd5a8ef25149",
-    "public/config.js": "e704467aaf9a5290ddd50cddbbde6ffe0eb8d576c2091f948df38a00024253ea",
-    "public/town.js": "724d11280e15685b2514a7ad960c4ac5b04f108bbc8f61a9f9764f984574d269",
-    "public/economics.js": "d79f32f801781fba9a6ebca1929d2352d855ba978594064ec053ecacb7369a86",
-    "public/free-agents.js": "10d1f49669b1f5e54e75b97ca56e45815775556e8f83dc5506c6b830b25fe6ce",
-    "public/app.js": "036b7def2b79d5a1440be479ac6ac73859b80f06937a54428a89db18ec60bced",
-    "public/student-case.html": "0e7a66df7fc8a1cca8ce5e0a5687ac05a3570157b6440fd533c3f68493de769b",
-    "package.json": "3be76e054302b91ed6b6b78b6f1139f21c86e1bcb3f650290691de223ca267d3",
-    "package-lock.json": "10ec4380d17040a39a056d336ef080d6a7a213d651146af0bf58fa1451782bde",
-    "render.yaml": "be9ca22f74f8d2def6056affa960259a66dcd9cb5afa0fb06e7570785f7fc164",
-    ".env.example": "70d7fc0628f5850d4136332f587a317860d5c2c9879b5ebd2d3731fb4e98de74"
+    "server/runtime-config.js": "b130d60f7f210bfbb97c26f18c63d35c8c80fecf43cfc295b0f74d33c78f43ae",
+    "server/server.js": "ed7d81979d46ec2c2b336d9f75afd741a5ae5fa372fcdcbd4f313f692128bceb"
   }
 }
