@@ -204,3 +204,13 @@ test('missing case information cannot promise an unsupported colleague referral'
  const bakery=prepareActorRequest({personId:'marta',question:'What does the bread service cost?'});
  assert.doesNotMatch(bakery.instructions,/Always name the colleague/);
 });
+
+test('release status reports only a validated commit identifier',async t=>{
+ const previous=process.env.RENDER_GIT_COMMIT;
+ try {
+  process.env.RENDER_GIT_COMMIT='a'.repeat(40);
+  const base=await listen(t);assert.equal((await(await fetch(base+'/api/status')).json()).commit,'a'.repeat(40));
+  process.env.RENDER_GIT_COMMIT='not-a-commit-or-a-secret';
+  const safe=await listen(t);assert.equal((await(await fetch(safe+'/api/status')).json()).commit,null);
+ }finally{if(previous===undefined)delete process.env.RENDER_GIT_COMMIT;else process.env.RENDER_GIT_COMMIT=previous;}
+});
