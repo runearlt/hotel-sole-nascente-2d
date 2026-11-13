@@ -114,7 +114,7 @@ export function isSolutionRequest(text) {
   if (/\b(?:quantity|room[- ]nights? demanded|rooms demanded)\b.*\b(?:at|when|if)\b/.test(input)) return true;
   return /\b(?:what is|what are|tell me|give me)\b.*\b(?:price|point)\s+elasticit(?:y|ies)\b/.test(input) && !/cross[- ]price|income|\b(?:mean|concept|definition|define|given|provided|supplied)\b/.test(input);
 }
-const normalize = text => String(text).toLowerCase().replace(/[^a-z0-9€]+/g, ' ').trim();
+const normalize = text => String(text).toLowerCase().replace(/\b(prcie|prcies|pric|roooms|roms|bookngs|bookins|bookigns|reqeusted|capcity)\b/g,word=>({prcie:'price',prcies:'prices',pric:'price',roooms:'rooms',roms:'rooms',bookngs:'bookings',bookins:'bookings',bookigns:'bookings',reqeusted:'requested',capcity:'capacity'})[word]).replace(/[^a-z0-9€]+/g, ' ').trim();
 const relevant = (fact, text) => fact.match.some(pattern => pattern.test(text));
 export const isBroadQuestion = text => {
   const input=normalize(text);
@@ -124,7 +124,7 @@ export const isBroadQuestion = text => {
 
 export function factReply(personId, fact, question, context = {}) {
   const input = normalize(question);
-  return fact.say({ ...context, nextPeriodGuests: SCENARIO.breakfast.guests });
+  return fact.say({ ...context, nextPeriodGuests: SCENARIO.wine.dinnerGuests - SCENARIO.wine.outsideDiners });
 }
 
 export function answerFreeQuestion(personId, text, context = {}) {
