@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 import {roleCard} from '../server/role-cards.js';
 import {providerResponse,mockProvider} from './mock-provider.mjs';
 
-const point='At €170 per room for one night, 69 rooms were requested.';
+const point='At €170 per room for one night, 69 rooms were requested. Marco has a separate observation.';
 const body={personId:'lucia',question:'Which figures did your team record when it last offered accommodation?'};
 const config={...runtimeConfig({}),callsPerDay:1000,callsPerSessionMinute:1000,callsPerIpMinute:10000};
 const mock=(text,ids=['price'],extra={})=>converse(body,{mode:'mock',config,usage:new UsageControl(config),fetcher:async()=>providerResponse(text,ids),...extra});
@@ -20,7 +20,7 @@ test('model chooses relevant evidence even when the rule matcher has no matching
   const reply=await mock(point);
   assert.equal(reply.source,'mock');assert.deepEqual(reply.factIds,['price','bookings']);
   assert.notEqual(reply.answer,prepared.fallback.answer);
-  assert.equal((await mock('At €170 per night, 69 rooms were requested.')).source,'mock');
+  assert.equal((await mock('At €170 per night, 69 rooms were requested. Marco has a separate observation.')).source,'mock');
 });
 
 test('role prompts exclude other observations and answer keys',()=>{
@@ -34,7 +34,7 @@ test('role prompts exclude other observations and answer keys',()=>{
 });
 
 test('broad questions cannot be credited with numerical evidence',async()=>{
-  const broad={personId:'lucia',question:'What can you tell me about hotel bookings?'};
+  const broad={personId:'lucia',question:'What can you tell me about your work?'};
   const bad=await converse(broad,{mode:'mock',config,fetcher:async()=>providerResponse(point,['price'])});
   assert.equal(bad.reason,'model_output_rejected');assert.equal(bad.factId,null);assert.doesNotMatch(bad.answer,/170|69/);
   const good=await converse(broad,{mode:'mock',config,fetcher:async()=>providerResponse('I look after the hotel. You can ask me about our reference price and bookings, or the conditions behind them.',[],'scope')});
@@ -178,4 +178,29 @@ test('session records expire and remain bounded',()=>{
   const req={headers:{},socket:{}};const res={setHeader:(k,v)=>{cookie=v.split(';')[0];}};
   const a=store.session(req,res);store.record(a,{personId:'lucia',conversationId:'page-session-aaaaaaaa',question:'Hello'},{answer:'Hello'});
   now=101;const b=store.session({headers:{cookie},socket:{}},res);assert.notEqual(a,b);assert.equal(store.sessions.size,1);
+});
+
+test('API refusal or redirection cannot hide requested evidence on the actor card', async()=>{
+  for (const personId of ['lucia','marco']) for (const question of ['Tell me about your room prices','What can you tell me about hotel bookings?','How many rooms were requested?']) {
+    for (const [answer,kind] of [['I do not have that information.','unknown'],['Ask Elena for those figures.','redirect'],['Ask me about prices and bookings.','scope']]) {
+      const reply=await converse({personId,question},{mode:'mock',config,usage:new UsageControl(config),fetcher:async()=>providerResponse(answer,[],kind)});
+      assert.equal(reply.reason,'model_output_rejected');
+      assert.match(reply.answer,personId==='lucia'?/170.*69/:/190.*54/);
+    }
+  }
+});
+
+test('a model cannot add unrelated case data or omit the other observation holder',async()=>{
+ const body={personId:'marco',question:'What are your booking requests?'};
+ for(const [answer,ids] of [['At €190 for one night, 54 rooms were requested.',['other']],['At €190 for one night, 54 rooms were requested. Lucia has the other observation. I do not have income data.',['other','income']]]){
+  const reply=await converse(body,{mode:'mock',config,usage:new UsageControl(config),fetcher:async()=>providerResponse(answer,ids)});
+  assert.equal(reply.reason,'model_output_rejected');assert.match(reply.answer,/190.*54.*Lucia/);
+ }
+});
+
+test('missing case information cannot promise an unsupported colleague referral',async()=>{
+ const reply=await converse({personId:'lucia',question:'What is the official hotel star rating?'},{mode:'mock',config,usage:new UsageControl(config),fetcher:async()=>providerResponse('I do not have that information. Ask Elena for the official star rating.',[],'unknown')});
+ assert.equal(reply.reason,'model_output_rejected');assert.doesNotMatch(reply.answer,/Elena/);
+ const bakery=prepareActorRequest({personId:'marta',question:'What does the bread service cost?'});
+ assert.doesNotMatch(bakery.instructions,/Always name the colleague/);
 });
