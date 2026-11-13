@@ -46,8 +46,9 @@ export async function converse(body, options={}) {
 
 export function createGameServer({converseFn=converse,config=defaults,conversations=new Conversations()}={}) {
   const usage=new UsageControl(config);
+  const commit=/^[a-f0-9]{40}$/i.test(process.env.RENDER_GIT_COMMIT||'')?process.env.RENDER_GIT_COMMIT:null;
   return createServer(async (req, res) => {
-    if (req.method==='GET' && req.url==='/api/status') return json(res,200,{version:'actor-cards-v1',mode:config.mode,apiConfigured:Boolean(process.env.OPENAI_API_KEY?.trim()),model:config.model,providerVerified:false});
+    if (req.method==='GET' && req.url==='/api/status') return json(res,200,{version:'actor-cards-v1',commit,mode:config.mode,apiConfigured:Boolean(process.env.OPENAI_API_KEY?.trim()),model:config.model,providerVerified:false});
     if (req.method === 'POST' && req.url === '/api/actor') {
       try {
         let raw = '',bytes=0;
