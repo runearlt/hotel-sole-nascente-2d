@@ -1,10 +1,11 @@
 import { HOTEL_DEMO } from './hotel-demo.js';
 import { hotelAtPrice, eur } from './economics.js';
+import { closeNumber } from './input-checks.js';
 
 export const HOTEL_CASE = HOTEL_DEMO;
 export const caseQuantity = (price = HOTEL_DEMO.referencePrice) => hotelAtPrice(price).requested;
 export const caseElasticity = (price = HOTEL_DEMO.referencePrice) => hotelAtPrice(price).elasticity;
-const close = (value, expected, tolerance = 0.0051) => value != null && String(value).trim() !== '' && Number.isFinite(Number(value)) && Math.abs(Number(value) - expected) <= tolerance;
+const close = closeNumber;
 const stages = [['demand', 'Derive demand'], ['mr', 'TR and MR'], ['elasticity', 'Price elasticity'], ['interpretation', 'Test a room rate']];
 
 export function blankCaseHotel() { return { demand: null, mr: null, elasticity: null, interpretation: null, feedback: '' }; }
