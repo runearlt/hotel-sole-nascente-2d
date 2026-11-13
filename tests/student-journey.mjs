@@ -58,6 +58,16 @@ async function runJourney(width, height, mode = 'free') {
     await click('.game-go');
     if (mode === 'free') {
       assert.equal(await page.locator('.scene-question').count(), 0, 'free mode must hide prepared questions');
+      await page.locator('#free-question-input').focus();
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('[role="dialog"]').count(),0,'Escape must close a dialog from its input');
+      await click('.interior-actions [data-person="lucia"]');
+      await page.locator('.scene-dialogue button').last().focus();
+      await page.keyboard.press('Tab');
+      assert.equal(await page.locator('.scene-dialogue [aria-label="Close conversation"]').evaluate(el=>el===document.activeElement),true,'Tab must remain in the modal');
+      await page.keyboard.press('Shift+Tab');
+      assert.equal(await page.locator('.scene-dialogue button').last().evaluate(el=>el===document.activeElement),true,'Shift+Tab must wrap inside the modal');
+
       await page.route('**/api/actor', route => route.fulfill({contentType:'application/json',body:JSON.stringify(route.request().postDataJSON().question.includes('optimal') ? {answer:'At €170 per room for one night, 69 rooms were requested. You need to derive the demand function yourself.',factIds:['price','bookings'],source:'boundary'} : {answer:'At €170 per room for one night, 69 rooms were requested.',factIds:['price','bookings'],source:'mock'})}));
       await page.locator('#free-question-input').fill('What is your reference room price?');
       await click('.free-question button[type="submit"]');
@@ -83,6 +93,7 @@ async function runJourney(width, height, mode = 'free') {
       await page.locator('#free-question-input').fill(delayedQuestion);
       await click('.free-question button[type="submit"]');
       await arrived;
+      assert.equal(await page.locator('.free-question button[type="submit"]').isDisabled(),true,'Pending requests must not be resubmitted');
       await closeTalk();
       await click('.interior-actions [data-person="marco"]');
       await delayedRoute.fulfill({ contentType: 'application/json', body: JSON.stringify({ answer: 'Lucia’s delayed reply: our reference price is €170.', factId: 'price', source: 'fallback' }) });
@@ -183,6 +194,8 @@ async function runJourney(width, height, mode = 'free') {
     await closeTalk();
     await click('.game-go[data-action="workspace"]');
     assert.equal(await page.locator('.observation-table').isVisible(), true);
+    await fill(page.locator('[data-form="bakery-test"]'), {bakers:2,predictedExtra:99,predictedCost:1,prediction:60});
+    assert.doesNotMatch(await page.evaluate(()=>JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).breakfast.feedback),/€76|20 extra|contributes 20/,'Wrong bakery answers must not expose worked results');
     for (const [bakers, extra, cost, served] of [[1, 40, 44, 40], [2, 20, 76, 60], [3, 5, 99, 60]]) {
       await fill(page.locator('[data-form="bakery-test"]'), { bakers, predictedExtra: extra, predictedCost: cost, prediction: served });
       if (bakers < 3) assert.equal(await page.locator('[name="bakers"]').first().inputValue(), String(bakers + 1), 'next untested plan should be selected');
@@ -201,7 +214,9 @@ async function runJourney(width, height, mode = 'free') {
     await click('.game-go[data-action="workspace"]');
     const wine = page.locator('[data-form="winery-decide"]');
     await wine.locator('[name="choice"][value="house"]').check();
-    await fill(wine, { predictedEstate: 0, predictedHouse: 40, predictedCost: 320, reason });
+    await fill(wine,{predictedEstate:0,predictedHouse:40,predictedCost:1,reason});
+    assert.doesNotMatch(await page.evaluate(()=>JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).winery.feedback),/320|needs.*bottles/,'Wrong wine answers must not expose the purchase total');
+    await fill(page.locator('[data-form="winery-decide"]'), { predictedEstate: 0, predictedHouse: 40, predictedCost: 320, reason });
     await fill(page.locator('[data-form="winery-reflect"]'), { reflection });
     const state = await page.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')));
     assert.ok(state.breakfast.decision?.reflection, 'breakfast reflection missing');
@@ -209,6 +224,12 @@ async function runJourney(width, height, mode = 'free') {
     assert.ok(state.caseHotel.elasticity, 'elasticity comparison missing');
     assert.ok(state.caseHotel.interpretation, 'case advice missing');
     assert.ok(state.winery.reflection, 'wine reflection missing');
+    await page.keyboard.press('Escape');
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#restart').click();
+    await page.locator('[data-mode="free"]').waitFor();
+    const restarted=await page.evaluate(()=>JSON.parse(localStorage.getItem('sole-bay-simulation-v1')));
+    if(restarted){assert.equal(restarted.mode,null);assert.deepEqual(restarted.log,[]);assert.equal(restarted.caseHotel.demand,null);assert.deepEqual(restarted.interviews.hotel,[]);}
     assert.deepEqual(errors, [], 'browser reported page errors');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px workspace overflows`);
     await mkdir('test-artifacts', { recursive: true });
@@ -224,6 +245,14 @@ async function runJourney(width, height, mode = 'free') {
 }
 
 try {
+  const privateContext=await browser.newContext();
+  const privatePage=await privateContext.newPage();
+  await privatePage.addInitScript(()=>{Storage.prototype.setItem=()=>{throw new DOMException('Storage unavailable','QuotaExceededError');};});
+  await privatePage.goto(URL,{waitUntil:'domcontentloaded'});
+  await privatePage.locator('[data-mode="free"]').click();
+  await privatePage.getByText(/Browser storage is unavailable/).waitFor();
+  assert.equal(await privatePage.locator('#town-canvas').isVisible(),true,'Blocked storage must not prevent play');
+  await privateContext.close();
   const migrationContext = await browser.newContext();
   const migrationPage = await migrationContext.newPage();
   await migrationPage.goto(URL, { waitUntil: 'domcontentloaded' });
