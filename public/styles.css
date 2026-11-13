@@ -14,6 +14,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .app { min-height: 100vh; }
 .header {
+  position: sticky; top: 0; z-index: 3;
   display: flex; align-items: center; gap: 22px; padding: 0 25px;
   min-height: 64px; background: #1d3741; color: #eff5ed; border-bottom: 4px solid #b8d0b9;
 }
