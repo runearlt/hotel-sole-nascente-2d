@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-11-13T00:46:15.737271+00:00",
+  "state": "verified_for_supervised_pilot",
+  "requirements": {
+    "activeHotel": "80 rooms; EUR per room-night; Lucia 170/69; Marco 190/54",
+    "studentCalculations": "Demand, TR/MR, elasticity and rate calculations remain student work",
+    "optionalExercises": "Independent bakery and wine forecasts; unchanged agreed values",
+    "memory": "Per-session actor isolation, forged client history ignored",
+    "verification": {
+      "unitAndHttp": 58,
+      "desktopAndPhoneJourneys": true,
+      "syntheticStudents": 100,
+      "syntheticCompletions": 100,
+      "outageRecoveries": 20,
+      "incorrectTestedAnswersAccepted": 0,
+      "productionInstallAndStart": true,
+      "liveRequestsAuthorized": 24,
+      "liveRequestsUsedThisAudit": 24,
+      "liveFunctionalPasses": 24,
+      "liveModelReplies": 16,
+      "liveFallbacks": 4,
+      "liveBoundaries": 4
+    }
+  },
+  "findings": [
+    {
+      "id": "nonlinear-equation-prefix",
+      "before": "P=262-(4/3)Q^2 could be read as a valid linear prefix",
+      "fix": "Full affine parser rejects unsupported nonlinear syntax",
+      "regression": "tests/demand-notation.test.mjs"
+    },
+    {
+      "id": "equivalent-notation",
+      "before": "P=262-4Q/3 was not recognized",
+      "fix": "Safe arithmetic parser supports standard equivalent linear forms",
+      "regression": "tests/demand-notation.test.mjs"
+    },
+    {
+      "id": "rounding-consistency",
+      "before": "Actor and workspace tolerances could disagree",
+      "fix": "Both check canonical inverse coefficients to 0.0001",
+      "regression": "tests/demand-notation.test.mjs"
+    },
+    {
+      "id": "blank-zero",
+      "before": "Number conversion could turn a blank into zero",
+      "fix": "numericInput rejects blank and non-numeric types",
+      "regression": "tests/input-checks.test.mjs"
+    },
+    {
+      "id": "premature-results",
+      "before": "Rejected bakery and wine attempts displayed worked results",
+      "fix": "Feedback identifies errors without supplying unearned results; unverified table cells remain blank",
+      "regression": "tests/student-journey.mjs"
+    },
+    {
+      "id": "independent-forecasts",
+      "before": "Wine resident diners depended on bakery guest count",
+      "fix": "Wine dinner forecast is derived only from its own assumptions",
+      "regression": "tests/math-audit.test.mjs"
+    },
+    {
+      "id": "escape-focus",
+      "before": "Escape was ignored in a focused question input",
+      "fix": "Escape closes the active modal from inputs",
+      "regression": "tests/student-journey.mjs"
+    },
+    {
+      "id": "tab-focus-race",
+      "before": "Deferred initial focus could override student tab navigation",
+      "fix": "Modal focus wraps and initial focus respects an already-focused modal control",
+      "regression": "tests/student-journey.mjs"
+    },
+    {
+      "id": "duplicate-submission",
+      "before": "Rerendering could re-enable an in-flight question",
+      "fix": "Per-actor pending state survives rerenders and blocks duplicate submissions",
+      "regression": "tests/student-journey.mjs"
+    },
+    {
+      "id": "unrelated-evidence",
+      "before": "Model could append unrelated fact-card entries",
+      "fix": "Known factual questions cannot credit unrequested facts",
+      "regression": "tests/conversation-engine.test.mjs"
+    },
+    {
+      "id": "missing-referral",
+      "before": "Model could omit the other observation holder",
+      "fix": "Hotel observation replies name Marco or Lucia or use an honest fallback",
+      "regression": "tests/conversation-engine.test.mjs"
+    },
+    {
+      "id": "typing-errors",
+      "before": "Common price and booking misspellings could prevent evidence collection",
+      "fix": "Small explicit typo normalization preserves factual discovery offline",
+      "regression": "tests/simulate-students.mjs"
+    },
+    {
+      "id": "storage-unavailable",
+      "fix": "Persistent warning and honest in-tab-only label if saving fails",
+      "regression": "tests/student-journey.mjs"
+    },
+    {
+      "id": "unsupported-referral",
+      "fix": "Unknown facts cannot invent colleague ownership; hotel referrals apply only to hotel observation holders",
+      "regression": "tests/conversation-engine.test.mjs"
+    },
+    {
+      "id": "deployed-release-identity",
+      "fix": "Status exposes only valid 40-hex Render commit ID",
+      "regression": "tests/conversation-engine.test.mjs"
+    }
+  ],
+  "publication": {
+    "branch": "api-version",
+    "verifiedDeployedProductionCommit": "35a2438085fbcba4a6ee226cea15ee5d2fa1c7e6",
+    "liveMode": true,
+    "remaining": "Final GitHub CI and release-head confirmation recorded in completion message",
+    "evidence": "Production files and regression fixtures verified byte-for-byte through Git fetch; hosted status and 24 approved live requests verified."
+  },
+  "limitations": [
+    "Client-delivered formulas and checks are discoverable; this is formative assessment, not secure examination.",
+    "Synthetic playthroughs do not establish student learning outcomes or measured completion times.",
+    "Free Render instances can cold-start slowly; labelled case-fact fallback preserves evidence access.",
+    "Instructor review is required for written economic reasoning."
+  ]
+}
