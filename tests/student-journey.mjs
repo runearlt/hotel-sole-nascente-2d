@@ -55,8 +55,8 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px town overflows`);
 
     await click('.tabs [data-action="workspace"]');
-    await page.locator('[data-form="case-hotel-demand"] [name="equation"]').waitFor();
-    await fill(page.locator('[data-form="case-hotel-demand"]'), {equation:'P=170-Q'});
+    await page.locator('[data-form="case-hotel-demand"] [name="intercept"]').waitFor();
+    await fill(page.locator('[data-form="case-hotel-demand"]'), {intercept:170,slope:-1});
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(),0,'Incorrect equation must not unlock the next exercise');
     await page.locator('[aria-label="Close workspace"]').click();
     await click('.game-go');
@@ -124,9 +124,9 @@ async function runJourney(width, height, mode = 'free') {
     await click('.scene-dialogue [data-action="workspace"]');
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(), 0);
     assert.doesNotMatch(await page.locator('.mini-task').innerText(), /262|196\.5|1\.333/);
-    await fill(page.locator('[data-form="case-hotel-demand"]'), { equation: 'P=170-Q' });
+    await fill(page.locator('[data-form="case-hotel-demand"]'), { intercept: 170, slope: -1 });
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(), 0);
-    await fill(page.locator('[data-form="case-hotel-demand"]'), { equation: 'P=262-4Q/3' });
+    await fill(page.locator('[data-form="case-hotel-demand"]'), { intercept: 262, slope: -4/3 });
     await page.locator('[name="tr"]').fill('-0.05');
     await click('[data-action="hint"]');
     assert.equal(await page.locator('[name="tr"]').inputValue(), '-0.05', 'hints must retain unfinished work');
