@@ -146,9 +146,9 @@ try {
       await talk('elena', ['full', 'costs']);
       click('[data-action="workspace"]');
       if (profile.usesHints) click('[data-action="hint"]');
-      submit('case-hotel-demand', { equation: 'P=170-Q' }); counts.retries++;
+      submit('case-hotel-demand', { intercept: 170, slope: -1 }); counts.retries++;
       flags.wrongDemandAccepted = !!read().caseHotel.demand;
-      submit('case-hotel-demand', { equation: 'P=262-4Q/3' });
+      submit('case-hotel-demand', { intercept: 262, slope: -4/3 });
       submit('case-hotel-mr', { tr: 0, mr: -8 / 3 }); counts.retries++;
       flags.wrongTRAccepted = !!read().caseHotel.mr;
       submit('case-hotel-mr', { tr: -4 / 3, mr: -0.03 }); counts.retries++;
