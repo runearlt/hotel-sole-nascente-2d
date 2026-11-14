@@ -534,7 +534,7 @@ main.addEventListener('click', e => {
     const step = review.dataset.caseStep;
     const result = state.caseHotel[step];
     const formName = { demand: 'case-hotel-demand', mr: 'case-hotel-mr', elasticity: 'case-hotel-elasticity', interpretation: 'case-hotel-advice' }[step];
-    if (!state.drafts[formName] && step === 'demand') state.drafts[formName] = { equation: result.equation || `P = ${result.intercept} + (${result.slope})Q` };
+    if (!state.drafts[formName] && step === 'demand') state.drafts[formName] = { intercept: result.intercept, slope: result.slope };
     if (!state.drafts[formName]) state.drafts[formName] = step === 'interpretation' ? { ...result, predictedRequested: result.requested, predictedSold: result.sold, predictedRevenue: result.revenue } : { ...result };
     state.caseHotel.editing = step;
     state.caseHotel.feedback = '';
