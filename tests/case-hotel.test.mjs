@@ -8,7 +8,7 @@ import { providerResponse } from './mock-provider.mjs';
 
 const explanation = 'Demand and price percentage changes are compared while other conditions stay fixed. Capacity limits actual sales but not requested rooms.';
 const rate = { price: 170, predictedRequested: 69, predictedSold: 69, predictedRevenue: 11730, profitClaim: 'no', reflection: explanation };
-const ready = () => { const progress = blankCaseHotel(); evaluateCaseHotel('case-hotel-demand', { equation: 'P=262-4Q/3' }, progress); evaluateCaseHotel('case-hotel-mr', { tr: -4 / 3, mr: -8 / 3 }, progress); evaluateCaseHotel('case-hotel-elasticity', { value: -1.85, explanation }, progress); return progress; };
+const ready = () => { const progress = blankCaseHotel(); evaluateCaseHotel('case-hotel-demand', { intercept: 262, slope: -4/3 }, progress); evaluateCaseHotel('case-hotel-mr', { tr: -4 / 3, mr: -8 / 3 }, progress); evaluateCaseHotel('case-hotel-elasticity', { value: -1.85, explanation }, progress); return progress; };
 const response = text => async () => providerResponse(text+(/190/.test(text)?' Lucia has the other observation.':' Marco has the other observation.'), /190/.test(text)?['other']:/170/.test(text)?['price']:[]);
 
 test('active hotel exactly matches the linked EUR demonstration', () => {
@@ -35,11 +35,11 @@ test('demand must be derived correctly before revenue work, without revealing co
   assert.equal(caseHotelStage(progress), 'demand');
   assert.match(task, /case-hotel-demand/); assert.doesNotMatch(task, /262|196\.5|1\.333|4\/3/);
   assert.equal(evaluateCaseHotel('case-hotel-mr', {tr:-4/3,mr:-8/3}, progress).accepted, undefined);
-  for (const values of [{equation:''}, {equation:'P=262'}, {equation:'P=170-Q'}, {equation:'P=262+4Q/3'}, {equation:'P=262-4Q/3+Q^2'}]) {
+  for (const values of [{equation:''}, {equation:'P=262'}, {intercept:170,slope:-1}, {equation:'P=262+4Q/3'}, {equation:'P=262-4Q/3+Q^2'}]) {
     assert.equal(evaluateCaseHotel('case-hotel-demand', values, progress).accepted, undefined);
     assert.equal(progress.demand, null);
   }
-  assert.equal(evaluateCaseHotel('case-hotel-demand', {equation:'P=262-1.3333Q'}, progress).accepted, true);
+  assert.equal(evaluateCaseHotel('case-hotel-demand', {intercept:262,slope:-1.3333}, progress).accepted, true);
   assert.equal(caseHotelStage(progress), 'mr');
 });
 
@@ -54,12 +54,12 @@ test('demand checking is deterministic and gives no corrected equation', async (
 test('TR/MR reject missing, zero, wrong-sign and original-case coefficients', () => {
   for (const invalid of ['', null, undefined, NaN, Infinity, 0, 0.05, -0.05, -0.1]) for (const field of ['tr', 'mr']) {
     const progress = blankCaseHotel();
-    evaluateCaseHotel('case-hotel-demand', { equation: 'P=262-4Q/3' }, progress);
+    evaluateCaseHotel('case-hotel-demand', { intercept: 262, slope: -4/3 }, progress);
     evaluateCaseHotel('case-hotel-mr', { tr: -4 / 3, mr: -8 / 3, [field]: invalid }, progress);
     assert.equal(progress.mr, null);
   }
   const progress = blankCaseHotel();
-    evaluateCaseHotel('case-hotel-demand', { equation: 'P=262-4Q/3' }, progress);
+    evaluateCaseHotel('case-hotel-demand', { intercept: 262, slope: -4/3 }, progress);
   assert.equal(evaluateCaseHotel('case-hotel-mr', { tr: -1.3333, mr: -2.6667 }, progress).accepted, true);
 });
 
@@ -124,14 +124,15 @@ test('model instructions exclude invented client answers and old group data', ()
   assert.doesNotMatch(prepared.instructions, /2400|2100|1800|262|196\.5|170|69/);
 });
 
- test('workspace presents a real equation exercise immediately and advances only after a correct full equation', () => {
+test('workspace presents separate values immediately and advances only when both are correct', () => {
   const p=blankCaseHotel();const task=caseHotelTask(p,[],String);
-  assert.match(task,/name="equation"/);assert.doesNotMatch(task,/name="intercept"|262|196\.5/);
-  assert.equal(evaluateCaseHotel('case-hotel-demand',{intercept:262,slope:-4/3},p).accepted,undefined);
-  assert.equal(caseHotelStage(p),'demand');
-  assert.equal(evaluateCaseHotel('case-hotel-demand',{equation:'Q(P) = 196.5 - 0.75P'},p).accepted,true);
-  assert.equal(p.demand.equation,'Q(P) = 196.5 - 0.75P');assert.equal(caseHotelStage(p),'mr');
-  assert.match(caseHotelTask(p,[],String),/case-hotel-mr/);
-  evaluateCaseHotel('case-hotel-demand',{equation:'P=200-Q'},p);
-  assert.equal(p.demand.equation,'Q(P) = 196.5 - 0.75P');
+  assert.match(task,/name="intercept"/);assert.match(task,/name="slope"/);assert.doesNotMatch(task,/name="equation"|262|196\.5/);
+  for(const values of [{intercept:'',slope:-4/3},{intercept:262,slope:''},{intercept:262,slope:4/3},{equation:'P=262-4Q/3'}]) {
+    assert.equal(evaluateCaseHotel('case-hotel-demand',values,p).accepted,undefined);
+    assert.equal(caseHotelStage(p),'demand');
+  }
+  assert.equal(evaluateCaseHotel('case-hotel-demand',{intercept:262,slope:-1.3333},p).accepted,true);
+  assert.equal(caseHotelStage(p),'mr');assert.match(caseHotelTask(p,[],String),/case-hotel-mr/);
+  evaluateCaseHotel('case-hotel-demand',{intercept:200,slope:-1},p);
+  assert.deepEqual(p.demand,{intercept:262,slope:-1.3333});
 });
