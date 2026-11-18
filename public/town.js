@@ -1,3 +1,4 @@
+import { fitSceneViewport } from './scene-viewport.js';
 const WIDTH = 900, HEIGHT = 540, TILE = 20;
 const BUILDINGS = [
   { id: 'hotel', x: 72, y: 42, w: 376, h: 195, label: 'HOTEL SOLE NASCENTE', topic: 'PRICING · DEMAND · ELASTICITY · TR / MR', tone: '#f0d5a8', roof: '#b65c4d' },
@@ -170,6 +171,7 @@ export class Town {
     this.raf = requestAnimationFrame(this.loop);
   }
   draw() {
+    fitSceneViewport(this.canvas, this.player, WIDTH, HEIGHT);
     const c = this.ctx;
     c.setTransform(this.canvas.width / WIDTH, 0, 0, this.canvas.height / HEIGHT, 0, 0);
     c.imageSmoothingEnabled = true;
