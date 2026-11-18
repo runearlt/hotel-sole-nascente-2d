@@ -58,6 +58,18 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(await page.locator('.entry-start').evaluate(el=>el===document.activeElement),true,'Start screen focus must wrap to Start investigation');
     await click(`[data-mode="${mode}"]`);
     assert.equal(Math.round((await page.locator('#main').boundingBox()).width),width,'Game must use the full viewport width');
+    await page.waitForFunction(() => {
+      const stage=document.querySelector('.town-stage'),canvas=document.querySelector('#town-canvas');
+      if(!stage||!canvas)return false;
+      const s=stage.getBoundingClientRect(),c=canvas.getBoundingClientRect();
+      return Math.abs(s.bottom-innerHeight)<2 && c.width>=s.width-1 && c.height>=s.height-1;
+    });
+    const fullStage=await page.locator('.town-stage').boundingBox();
+    const topBar=await page.locator('.header').boundingBox();
+    assert.ok(Math.abs(fullStage.y-(topBar.y+topBar.height))<2,'Map must start directly below the header');
+    assert.ok(Math.abs(fullStage.y+fullStage.height-height)<2,`Map must reach the bottom of the viewport: ${JSON.stringify(fullStage)} vs ${height}`);
+    const fullCanvas=await page.locator('#town-canvas').boundingBox();
+    assert.ok(fullCanvas.width>=fullStage.width-1 && fullCanvas.height>=fullStage.height-1,'Playable map must cover the entire stage');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px town overflows`);
 
     await click('.tabs [data-action="workspace"]');
