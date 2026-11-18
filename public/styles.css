@@ -413,3 +413,96 @@ main:has(.game-shell) { max-width: 1050px; padding-top: 20px; }
   .mini-evidence[open] > div, .scratchpad[open] .scratch-body, .formula-content:not([hidden]) { padding: 5px 2px; }
   .mini-task { padding: 12px 13px 25px; }
 }
+
+/* Full-window investigation and start screen. */
+body.at-entry { overflow: hidden; background: #183e3c; }
+.at-entry .header { visibility: hidden; }
+.investigation-entry { position: fixed; inset: 0; z-index: 40; overflow-y: auto; display: grid; place-items: center; padding: 64px 24px 76px; isolation: isolate; color: #fff9e9; background: #183e3c; }
+.entry-world { position: fixed; inset: -18px; z-index: -3; background: url('assets/italian-coast-map-v2.png') center / cover no-repeat; filter: blur(5px); transform: scale(1.025); }
+.entry-veil { position: fixed; inset: 0; z-index: -2; background: linear-gradient(110deg, #102f35c9, #193b3480 55%, #102e37b8); }
+.entry-card { width: min(600px, 100%); padding: clamp(26px, 4vw, 48px); border: 1px solid #eee3bd66; border-radius: 16px; background: #173d3be8; box-shadow: 0 24px 90px #09262d70; text-align: center; backdrop-filter: blur(12px); }
+.entry-kicker { margin: 0 0 20px; color: #f6d899; font-size: 11px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+.entry-location { color: #c3d3bc; font-size: 9px; letter-spacing: .1em; }
+.entry-card h1 { margin: 14px 0 20px; font-family: Georgia, serif; font-size: clamp(34px, 4vw, 52px); font-weight: 400; line-height: 1.06; letter-spacing: -.025em; }
+.entry-card #entry-description { max-width: 430px; margin: 0 auto; color: #e0e7d8; font-size: 15px; line-height: 1.65; }
+.entry-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 20px; margin: 25px 0; color: #f1ca7c; font-size: 11px; }
+.entry-steps b { color: #d4dfcd; font-weight: 500; margin-left: 5px; }
+.entry-start { display: flex; justify-content: space-between; align-items: center; gap: 24px; width: 100%; min-height: 56px; padding: 15px 22px; border: 1px solid #ffdf9e; border-radius: 7px; background: #f0c777; color: #183c38; font-size: 16px; font-weight: 800; box-shadow: 0 5px 22px #0a242b44; }
+.entry-start:hover { background: #ffdb94; }
+.entry-start span { font-size: 24px; line-height: 1; }
+.entry-resume { margin: 12px 0 22px; color: #bed0bd; font-size: 11px; }
+.entry-brief { color: #f5dfb2; font-size: 12px; text-underline-offset: 4px; }
+.entry-optional { margin: 15px 0 0; color: #adc3b1; font-size: 10px; line-height: 1.5; }
+.entry-footer { position: fixed; inset: auto 28px 15px; display: flex; justify-content: space-between; gap: 15px; color: #e3e7cf; font-size: 10px; letter-spacing: .12em; pointer-events: none; }
+.entry-footer span { font-size: 11px; letter-spacing: 0; }
+.in-game .app { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.in-game .header { flex: none; }
+.in-game:has(.mini-workspace, .street-dialogue) .header { z-index: 0; }
+.in-game main { flex: 1; min-height: 0; width: 100%; max-width: none; margin: 0; padding: 20px 24px; overflow-y: auto; }
+.in-game main:has(.game-shell) { display: flex; flex-direction: column; position: relative; padding: 0; overflow: hidden; }
+.in-game main > .game-heading { position: absolute; z-index: 1; inset: 12px 16px auto; margin: 0; pointer-events: none; align-items: start; }
+.in-game .game-heading > div, .in-game .game-day { padding: 9px 13px; background: #fff9e8ed; border: 1px solid #73958a66; border-radius: 6px; box-shadow: 0 3px 14px #183b3a22; }
+.in-game main:has([role="dialog"]) > .game-heading { visibility: hidden; }
+.in-game .game-heading h1 { font-size: 20px; }
+.in-game .game-heading .eyebrow { font-size: 9px; margin-bottom: 3px; }
+.in-game .game-heading + .notice, .in-game main > .mode-status, .in-game main > .hotel-ledger { display: none; }
+.in-game .game-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 0; box-shadow: none; }
+.in-game .town-stage { flex: 1; min-height: 0; width: 100%; aspect-ratio: auto; container-type: size; isolation: isolate; background: #b5cba8; }
+.in-game .town-stage::before { content: ''; position: absolute; inset: -20px; z-index: -1; background: url('assets/italian-coast-map-v2.png') center / cover; filter: blur(18px) brightness(.8); }
+.in-game .hotel-room::before { background-image: url('assets/hotel-interior.png'); }
+.in-game .bakery-room::before { background-image: url('assets/bakery-interior.png'); }
+.in-game .winery-room::before { background-image: url('assets/winery-interior.png'); }
+.in-game .town-stage canvas { position: absolute; width: min(100cqw, 166.6667cqh); height: min(100cqh, 60cqw); left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.in-game .mobile-map-label { display: none; }
+.in-game .game-status { min-height: 56px; padding: 8px 16px; }
+.in-game main > .district-links, .in-game main > .interior-actions { flex: none; margin: 0; padding: 8px 12px; gap: 7px; background: #e7ede1; }
+.in-game .district-link, .in-game .interior-actions button { padding: 7px 10px; min-height: 45px; }
+.in-game .district-link strong, .in-game .interior-actions strong { font-size: 12px; }
+.in-game main > .street-links { flex: none; margin: 0; padding: 5px 12px; background: #f3f3e8; }
+.in-game .street-links button { padding: 5px 9px; }
+.in-game .mini-workspace { top: 14px; left: 4%; width: 92%; height: calc(100% - 28px); }
+.in-game .scene-dialogue { z-index: 3; }
+.in-game .scene-shade { z-index: 2; }
+.in-game .mini-workspace, .in-game .street-dialogue { z-index: 3; }
+@media (max-width: 760px) {
+  .investigation-entry { padding: 26px 16px 60px; }
+  .entry-card { padding: 27px 22px; border-radius: 12px; }
+  .entry-kicker { font-size: 9px; margin-bottom: 15px; }
+  .entry-card h1 { font-size: 37px; }
+  .entry-card #entry-description { font-size: 14px; }
+  .entry-steps { gap: 9px; font-size: 10px; margin: 22px 0; }
+  .entry-footer { inset: auto 18px 10px; font-size: 8px; }
+  .entry-footer span { font-size: 9px; }
+  .in-game main > .game-heading { inset: 8px 9px auto; }
+  .in-game .game-heading > div, .in-game .game-day { padding: 6px 8px; }
+  .in-game .game-heading h1 { font-size: 16px; }
+  .in-game .game-heading .eyebrow { font-size: 8px; }
+  .in-game .game-day { font-size: 9px; }
+  .in-game .game-status { min-height: 55px; padding: 7px 10px; gap: 9px; }
+  .in-game .game-objective strong { font-size: 12px; }
+  .in-game .game-go { font-size: 10px; padding: 7px 8px; }
+  .in-game .game-steps { width: 48px; }
+  .in-game main > .district-links, .in-game main > .interior-actions { padding: 5px; gap: 4px; }
+  .in-game .district-link, .in-game .interior-actions button { min-height: 37px; padding: 5px; }
+  .in-game .district-link strong, .in-game .interior-actions strong { font-size: 10px; }
+  .in-game .district-link small, .in-game .interior-actions small { font-size: 9px; }
+  .in-game .game-shell .town-controls { padding: 4px 0; }
+  .in-game .touch-controls button { width: 34px; height: 32px; font-size: 17px; }
+  .in-game main > .street-links { padding: 4px 6px; }
+  .in-game .street-links > span { display: none; }
+  .in-game .mini-workspace { position: fixed; top: 8px; left: 8px; width: calc(100vw - 16px); height: calc(100dvh - 16px); z-index: 20; }
+  .in-game .town-stage:has(.mini-workspace) .scene-shade { position: fixed; inset: 0; z-index: 19; }
+}
+@media (max-height: 650px) {
+  .investigation-entry { place-items: start center; padding-top: 22px; }
+  .entry-card { padding: 23px; }
+  .entry-card h1 { font-size: 34px; margin: 10px 0; }
+  .entry-kicker { margin-bottom: 10px; }
+  .entry-steps { margin: 16px 0; }
+  .entry-footer { display: none; }
+}
+
+@media (max-width: 760px) {
+  .in-game main:has(.mini-workspace, .street-dialogue) { overflow: visible; }
+  .in-game .town-stage:has(.mini-workspace, .street-dialogue) { container-type: normal; isolation: auto; overflow: visible; }
+}
