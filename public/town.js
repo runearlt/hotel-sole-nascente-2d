@@ -1,4 +1,4 @@
-import { fitSceneViewport } from './scene-viewport.js';
+import { fitSceneViewport, drawScenePerson, sceneCaption } from './scene-viewport.js';
 const WIDTH = 900, HEIGHT = 540, TILE = 20;
 const BUILDINGS = [
   { id: 'hotel', x: 72, y: 42, w: 376, h: 195, label: 'HOTEL SOLE NASCENTE', topic: 'PRICING · DEMAND · ELASTICITY · TR / MR', tone: '#f0d5a8', roof: '#b65c4d' },
@@ -179,21 +179,18 @@ export class Town {
     const label = (text, x, y, size = 12, color = '#244750') => { c.fillStyle = color; c.textAlign = 'center'; c.font = `bold ${size}px monospace`; c.fillText(text, x, y); };
     if (this.background.complete && this.background.naturalWidth) {
       c.drawImage(this.background, 0, 0, WIDTH, HEIGHT);
-      for (const [text, topic, x, y, tone] of [
-        ['HOTEL SOLE NASCENTE', 'PRICING · DEMAND · ELASTICITY · TR / MR', 250, 168, '#24464e'],
-        ['MARTA’S BAKERY', 'PRODUCTION · MARGINAL PRODUCT', 167, 297, '#744934'],
-        ['SOLE VINEYARD', 'WINE SUPPLY · PURCHASING', 780, 118, '#58445f']
+      for (const [name, detail, x, y] of [
+        ['Hotel Sole Nascente', 'Main hotel case', 250, 168],
+        ['Marta’s Bakery', 'Optional extension', 167, 297],
+        ['Sole Vineyard', 'Optional extension', 780, 118]
       ]) {
-        const width = Math.max(text.length * 7 + 18, topic.length * 6 + 18);
-        rect(x - width / 2, y - 15, width, 35, tone);
-        label(text, x, y, 11, '#fff3d4');
-        label(topic, x, y + 14, 9, '#f3dbac');
+        sceneCaption(c, x, y, name);
       }
       for (const p of PEOPLE) this.person(c, p.x, p.y, p.shirt, p.name, false, p.id);
       for (const p of this.streetPositions()) this.person(c, p.x, p.y, p.shirt, p.name, false, 'street');
       this.person(c, this.player.x, this.player.y, this.player.color, 'YOU', true);
       const nearby = this.nearest();
-      if (nearby) { rect(nearby.x - 28, nearby.y - 68, 56, 20, '#214750'); label('E · TALK', nearby.x, nearby.y - 54, 10, '#fff4d0'); }
+      if (nearby) sceneCaption(c, nearby.x, nearby.y + 22, 'E · Speak with '+nearby.name[0]+nearby.name.slice(1).toLowerCase(), true);
       return;
     }
     rect(0, 0, WIDTH, HEIGHT, '#acc393');
@@ -230,7 +227,7 @@ export class Town {
     for (const p of this.streetPositions()) this.person(c, p.x, p.y, p.shirt, p.name, false, 'street');
     this.person(c, this.player.x, this.player.y, this.player.color, 'YOU', true);
     const nearby = this.nearest();
-    if (nearby) { rect(nearby.x - 28, nearby.y - 68, 56, 20, '#214750'); label('E · TALK', nearby.x, nearby.y - 54, 10, '#fff4d0'); }
+    if (nearby) sceneCaption(c, nearby.x, nearby.y + 22, 'E · Speak with '+nearby.name[0]+nearby.name.slice(1).toLowerCase(), true);
     label('RIVIERA DEL SOLE', 450, 530, 12, '#55786c');
   }
   tree(c, x, y) {
@@ -285,36 +282,9 @@ export class Town {
     if (b.future) { c.fillStyle = '#193d42db'; c.fillRect(b.x + b.w - 55, b.y + b.h - 27, 48, 17); c.fillStyle = '#fff'; c.font = 'bold 9px monospace'; c.fillText('LATER', b.x + b.w - 31, b.y + b.h - 15); }
   }
   person(c, x, y, shirt, name, player, look = '') {
-    x = Math.round(x); y = Math.round(y);
-    const step = !this.reduced && this.frameCount % 28 < 14 ? 2 : 0;
-    c.fillStyle = '#243f3d66'; c.fillRect(x - 12, y + 13, 25, 5);
-    c.fillStyle = '#263b42'; c.fillRect(x - 8, y + 5, 6, 11 + step); c.fillRect(x + 2, y + 5 + step, 6, 11 - step);
-    c.fillRect(x - 9, y + 14 + step, 8, 4); c.fillRect(x + 2, y + 14 - step, 8, 4);
-    c.fillStyle = '#283a3d'; c.fillRect(x - 11, y - 14, 22, 22);
-    c.fillStyle = shirt; c.fillRect(x - 9, y - 12, 18, 18);
-    c.fillStyle = '#24404a'; c.fillRect(x - 12, y - 10, 3, 14); c.fillRect(x + 9, y - 10, 3, 14);
-    c.fillStyle = '#f0c799'; c.fillRect(x - 8, y - 29, 16, 16); c.fillRect(x - 11, y - 8, 3, 8); c.fillRect(x + 8, y - 8, 3, 8);
-    c.fillStyle = player ? '#393b43' : '#503f3e'; c.fillRect(x - 10, y - 34, 20, 8); c.fillRect(x - 10, y - 28, 3, 10); c.fillRect(x + 7, y - 28, 3, 10);
-    c.fillStyle = '#253a43'; c.fillRect(x - 4, y - 23, 2, 2); c.fillRect(x + 3, y - 23, 2, 2);
-    c.fillStyle = '#a66b55'; c.fillRect(x - 1, y - 17, 3, 2);
-    if (look === 'hotel') {
-      c.fillStyle = '#f1e8d4'; c.fillRect(x - 2, y - 12, 4, 15);
-      c.fillStyle = '#d7b66f'; c.fillRect(x + 5, y - 8, 3, 3);
-      c.fillStyle = '#292b34'; c.fillRect(x + 7, y - 34, 8, 9);
-    } else if (look === 'bakery') {
-      c.fillStyle = '#bd5547'; c.fillRect(x - 11, y - 35, 22, 6); c.fillRect(x + 9, y - 31, 5, 12);
-      c.fillStyle = '#f3ebd7'; c.fillRect(x - 6, y - 9, 12, 15);
-      c.fillStyle = '#cdab7d'; c.fillRect(x - 3, y - 3, 6, 2);
-    } else if (look === 'winery') {
-      c.fillStyle = '#413b46'; c.fillRect(x - 11, y - 27, 4, 15); c.fillRect(x + 7, y - 27, 4, 15);
-      c.fillStyle = '#d3af65'; c.fillRect(x - 14, y - 35, 28, 5); c.fillRect(x - 8, y - 42, 16, 8);
-      c.fillStyle = '#718b61'; c.fillRect(x - 8, y - 35, 16, 2); c.fillRect(x - 5, y - 10, 10, 3);
-    } else if (look === 'street') {
-      c.fillStyle = '#f7d8a6'; c.fillRect(x - 11, y - 35, 22, 5);
-      c.fillStyle = '#526f79'; c.fillRect(x - 8, y - 10, 16, 4);
-    }
-    c.fillStyle = '#24464f'; c.fillRect(x - 17, y - 52, Math.max(34, name.length * 8 + 10), 15);
-    c.textAlign = 'center'; c.fillStyle = '#fff3d4'; c.font = 'bold 10px monospace'; c.fillText(name, x, y - 41);
-    if (!player) { c.fillStyle = '#ffce65'; c.fillRect(x - 7, y - 70, 14, 14); c.fillStyle = '#36505a'; c.fillText(look === 'street' ? '?' : '!', x, y - 59); }
+    const moving = !this.reduced && (player ? this.keys.size > 0 || this.path.length > 0 : look === 'street');
+    const outfits = {hotel:'#465b62',bakery:'#7f7463',winery:'#666b5d',street:'#63747a'};
+    drawScenePerson(c,x,y,player?'#3f5660':outfits[look]||shirt,look,moving,this.frameCount);
+    sceneCaption(c,x,y-37,player?'You':name[0]+name.slice(1).toLowerCase(),player);
   }
 }
