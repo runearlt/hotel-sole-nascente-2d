@@ -620,3 +620,20 @@ body.at-entry { overflow: hidden; background: #183e3c; }
   .entry-card h1 { font-size: 34px; }
   .scene-speech { grid-template-columns: 33px 1fr; }
 }
+
+/* Actual WebGL 3D scenes fill the existing simulation surface. */
+.in-game .town-stage canvas { filter: none; width: 100%; height: 100%; inset: 0; transform: none; }
+.entry-world { background: #acbfbd; inset: 0; transform: none; filter: blur(3px) saturate(.9); }
+.entry-world canvas { display: block; width: 100%; height: 100%; }
+.world-feedback { position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%,-50%); max-width: min(470px,calc(100% - 36px)); padding: 18px 22px; background: #f7f6eeed; border: 1px solid #b9c5ba; border-radius: 7px; color: #314b45; font: 500 13px/1.6 system-ui,sans-serif; text-align: center; pointer-events: none; }
+.world-failure { z-index: 1; pointer-events: auto; }
+.entry-world .world-feedback { top: auto; bottom: 8px; transform: translateX(-50%); font-size: 11px; padding: 5px 10px; }
+.world-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.world-label { position: absolute; transform: translate(-50%,-100%); pointer-events: auto; padding: 5px 8px; border: 1px solid #bac7ba88; border-radius: 4px; background: #f6f5ebdf; color: #31473f; white-space: nowrap; font: 550 11px system-ui,sans-serif; box-shadow: 0 2px 8px #15352d12; }
+.world-label.near { background: #3a544bee; color: #fffdf3; border-color: #788d7d; }
+.world-prompt { position: absolute; z-index: 1; left: 50%; bottom: 85px; transform: translateX(-50%); padding: 9px 15px; border: 1px solid #9eae9a; border-radius: 5px; background: #304d43ed; color: #fffdf2; font: 550 12px system-ui,sans-serif; box-shadow: 0 3px 16px #17342b30; }
+.world-label[hidden],.world-labels[hidden],.world-prompt[hidden] { display:none; }
+.in-game main:has([role="dialog"]) .world-labels,.in-game main:has([role="dialog"]) .world-prompt,.in-game main:has([role="dialog"]) .world-feedback { visibility:hidden; }
+.in-game .town-stage:has(.mini-workspace) { container-type:normal; isolation:auto; }
+.in-game .game-heading .eyebrow::after { content:' · 3D'; }
+@media (max-width:760px) { .world-label { font-size:10px; padding:5px 7px; } .world-prompt { bottom:117px; max-width:calc(100% - 24px); font-size:11px; } }
