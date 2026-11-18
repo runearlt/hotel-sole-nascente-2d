@@ -51,7 +51,13 @@ async function runJourney(width, height, mode = 'free') {
     await page.goto(URL, { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => localStorage.removeItem('sole-bay-simulation-v1'));
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.entry-start').waitFor();
+    assert.equal(await page.locator('.header').evaluate(el=>el.inert),true,'Start screen must prevent background navigation');
+    assert.match(await page.locator('.entry-world').evaluate(el=>getComputedStyle(el).filter),/blur/,'Start screen must show a blurred game background');
+    await page.locator('.entry-brief').focus();await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.entry-start').evaluate(el=>el===document.activeElement),true,'Start screen focus must wrap to Start investigation');
     await click(`[data-mode="${mode}"]`);
+    assert.equal(Math.round((await page.locator('#main').boundingBox()).width),width,'Game must use the full viewport width');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px town overflows`);
 
     await click('.tabs [data-action="workspace"]');
@@ -131,6 +137,7 @@ async function runJourney(width, height, mode = 'free') {
     await click('[data-action="hint"]');
     assert.equal(await page.locator('[name="tr"]').inputValue(), '-0.05', 'hints must retain unfinished work');
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await click('[data-mode="free"]');
     assert.equal(await page.locator('[name="tr"]').inputValue(), '-0.05', 'draft must survive reload');
     let resumedHistory;
     await page.route('**/api/actor', route => { resumedHistory = route.request().postDataJSON().history; return route.continue(); });
@@ -170,6 +177,7 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(caseState.breakfast.decision, null, 'hotel must complete without bakery');
     assert.equal(caseState.winery.choice, null, 'hotel must complete without winery');
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await click('[data-mode="free"]');
     await page.getByRole('heading', { name: 'Hotel case completed', exact: true }).waitFor();
     await click('.mini-head [data-action="close-overlay"]');
     await click('.game-go');
@@ -263,6 +271,7 @@ try {
   await migrationPage.goto(URL, { waitUntil: 'domcontentloaded' });
   await migrationPage.evaluate(() => localStorage.setItem('sole-bay-simulation-v1', JSON.stringify({ mode: 'guided', view: 'town', caseVersion: 1, caseHotel: { mr: { tr: -0.05, mr: -0.1 }, elasticity: null, interpretation: { reflection: 'Previously saved DKK work' } }, interviews: { hotel: ['price'], bakery: [], winery: [] }, log: [{ kind: 'question', actor: 'hotel', detail: 'Old DKK case question', data: { answer: '78 rooms', speaker: 'Lucia' } }] })));
   await migrationPage.reload({ waitUntil: 'domcontentloaded' });
+  await migrationPage.locator('[data-mode="free"]').click();
   await migrationPage.locator('[data-visit="hotel"]').first().click();
   const migrated = await migrationPage.evaluate(() => JSON.parse(localStorage.getItem('sole-bay-simulation-v1')));
   assert.equal(migrated.caseVersion, 3);
