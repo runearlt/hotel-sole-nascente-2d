@@ -36,6 +36,9 @@ export const SCENES={
   targets:[{id:'sofia',kind:'person',name:'Sofia',role:'Winemaker',x:-3,z:0},{id:'giulia',kind:'person',name:'Giulia',role:'Inventory manager',x:4,z:0},
    {id:'workspace',kind:'workspace',name:'Purchasing workspace',x:7,z:5},{id:'town',kind:'exit',name:'Return to town',x:0,z:9.5}]}
 };
+for(const [x,z] of [[-12,5],[12,5],[-12,22],[12,22],[19,-4],[-36,4]])SCENES.town.obstacles.push({x,z,w:.3,d:.3,id:'street-lamp'});
+for(const [x,z] of [[-19.7,-4.97],[-14.3,-4.97],[-30.7,20.03],[-25.3,20.03],[27.3,-7.97],[32.7,-7.97]])SCENES.town.obstacles.push({x,z,w:1,d:1,id:'entrance-planter'});
+for(const x of [-21,-13])SCENES.town.obstacles.push({x,z:-4.4,w:.2,d:.2,id:'arrival-bollard'});
 for(const x of [27.8,32.2])SCENES.town.obstacles.push({x,z:10.7,w:.5,d:1.9,id:'open-vineyard-gate'});
 for(const z of [1.5,4.5])SCENES.winery.obstacles.push({x:-8,z,w:.6,d:.6,id:'tasting-chair'});
 for(const p of GARDA_PROPS)SCENES.town.obstacles.push({...p,id:'garda-'+p.kind});
