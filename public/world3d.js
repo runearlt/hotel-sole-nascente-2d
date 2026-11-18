@@ -68,14 +68,20 @@ export class InvestigationWorld {
   const distance=this.mobile?Math.min(this.distance,17):this.distance;let selectedYaw=this.yaw;
   // Pick an unobstructed approach to the player instead of allowing a wall to hide them.
   const blockers=this.area==='town'?SCENES.town.obstacles.filter(o=>o.id.includes('building')):[];
-  const clear=yaw=>{
-   desired.set(p.x+Math.sin(yaw)*distance,1.2+distance*.68,p.z+Math.cos(yaw)*distance);
-   const direction=desired.clone().sub(aim),length=direction.length();const ray=new T.Ray(aim,direction.normalize());
-   return !blockers.some(o=>{const box=new T.Box3(new T.Vector3(o.x-o.w/2,0,o.z-o.d/2),new T.Vector3(o.x+o.w/2,o.id==='hotel-building'?12:7,o.z+o.d/2));const hit=ray.intersectBox(box,new T.Vector3());return hit && hit.distanceTo(aim)<length;});
-  };
-  if(!clear(selectedYaw)){for(const turn of [.5,-.5,1,-1,1.6,-1.6,Math.PI])if(clear(this.yaw+turn)){selectedYaw=this.yaw+turn;break;}this.yaw=selectedYaw;}
-  clear(selectedYaw);
-  const smooth=this.cameraInitialized?1-Math.exp(-dt*7):1;this.camera.position.lerp(desired,smooth);this.cameraAim.lerp(aim,smooth);this.camera.lookAt(this.cameraAim);this.cameraInitialized=true;
+  const boxes=blockers.map(o=>new T.Box3(new T.Vector3(o.x-o.w/2,0,o.z-o.d/2),new T.Vector3(o.x+o.w/2,o.id==='hotel-building'?12:7,o.z+o.d/2)));
+  const visible=point=>{const direction=point.clone().sub(aim),length=direction.length(),ray=new T.Ray(aim,direction.normalize());return !boxes.some(box=>{const hit=ray.intersectBox(box,new T.Vector3());return hit && hit.distanceTo(aim)<length;});};
+  const candidate=yaw=>desired.set(p.x+Math.sin(yaw)*distance,1.2+distance*.68,p.z+Math.cos(yaw)*distance);
+  candidate(selectedYaw);
+  if(!visible(desired)){
+   for(let i=1;i<=32;i++){const turn=Math.ceil(i/2)*Math.PI/16*(i%2?1:-1);candidate(this.yaw+turn);if(visible(desired)){selectedYaw=this.yaw+turn;break;}}
+   // A steep approach is a last resort in a tight space between buildings.
+   while(!visible(desired)&&desired.y<80)desired.y+=4;
+   this.yaw=selectedYaw;
+  }
+  const smooth=this.cameraInitialized?1-Math.exp(-dt*7):1;this.camera.position.lerp(desired,smooth);this.cameraAim.lerp(aim,smooth);
+  // Interpolation between two clear views can cross a roof or wall. Never render that obstructed intermediate view.
+  if(!visible(this.camera.position)){this.camera.position.copy(desired);this.cameraAim.copy(aim);}
+  this.camera.lookAt(this.cameraAim);this.cameraInitialized=true;
  }
  tick(time){
   if(this.destroyed||!this.ready)return;const dt=Math.min(.05,Math.max(.001,(time-this.last)/1000));this.last=time;this.elapsed+=dt;let moving=false;
