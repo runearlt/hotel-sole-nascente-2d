@@ -34,6 +34,7 @@ export function addGardaDetails(h){
   g.computeVertexNormals();const q=mesh(g,mat(color),0,-1,z-span/2);q.castShadow=false;q.rotation.y=rotate;return q;
  }
  if(area==='town'){
+  box(0,-.35,145,650,.4,340,mat('#a3aa86','gravel'));ridge(0,30,42,'#82917c',3,Math.PI).position.set(0,-1,155);
   facade(-17,-14,28,16,9.3,'HOTEL SOLE NASCENTE');facade(-28,14,16,10,4.2,'PANIFICIO MARTA');facade(30,-15,16,12,4.5,'CANTINA SOLE');
   // Village road, raised pavements, drainage, crossings and repaired asphalt.
   box(0,.075,3,89,.06,6,mat('#666661','asphalt'));for(const z of [-.2,6.2]){box(0,.045,z,89,.16,.22,stone);box(0,.005,z+(z<0?-.19:.19),89,.05,.22,mat('#575a55'));}
