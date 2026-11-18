@@ -2,9 +2,9 @@ name: Student exercise checks
 
 on:
   pull_request:
-    branches: [development, main, working-version, open-version-api, api-version]
+    branches: [development, main, working-version, open-version-api, api-version, 3d-version]
   push:
-    branches: [development, main, working-version, open-version-api, api-version]
+    branches: [development, main, working-version, open-version-api, api-version, 3d-version]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify offline actor integration and student exercises
         run: npm run test:offline
+      - name: Verify genuine 3D rendering and movement
+        run: node tests/world3d-browser.mjs
       - name: Keep verification results and screenshots
         if: always()
         uses: actions/upload-artifact@v4
