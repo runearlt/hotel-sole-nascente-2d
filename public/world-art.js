@@ -1,4 +1,4 @@
-import {SURFACES} from './surface-textures.js';
+aimport {SURFACES} from './surface-textures.js';
 import * as T from './vendor/three-bundle.js';
 import {addGardaDetails} from './world-detail.js';
 import {SCENES,groundHeight} from './world-layout.js';
@@ -17,7 +17,7 @@ export function createWorldArt(scene,area,{mobile=false}={}){
   const t=remember(new T.CanvasTexture(c));t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(kind==='plaster'?2:4,kind==='wood'?2:4);t.anisotropy=4;return t;
  }
  const textures={stone:texture('stone'),wood:texture('wood'),roof:texture('roof'),plaster:texture('plaster'),asphalt:texture('asphalt'),gravel:texture('gravel'),water:texture('water'),linen:texture('linen')};
- const photographic={};for(const [kind,data] of Object.entries(SURFACES)){if(kind==='stone'&&area!=='town')continue;const color=remember(new T.TextureLoader().load(data.color)),normal=remember(new T.TextureLoader().load(data.normal));color.colorSpace=T.SRGBColorSpace;for(const t of [color,normal]){t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=4;}photographic[kind]={color,normal};}
+ const textureReady=[],photoTextures=[];const photographic={};for(const [kind,data] of Object.entries(SURFACES)){if(kind==='stone'&&area!=='town')continue;const load=uri=>{let resolve,reject;const ready=new Promise((yes,no)=>{resolve=yes;reject=no;});textureReady.push(ready);const t=remember(new T.TextureLoader().load(uri,resolve,undefined,reject));photoTextures.push(t);return t;};const color=load(data.color),normal=load(data.normal);color.colorSpace=T.SRGBColorSpace;for(const t of [color,normal]){t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=4;}photographic[kind]={color,normal};}
  function mat(color,kind='',extra={}){const key=color+kind+JSON.stringify(extra);if(!materials.has(key)){const photo=photographic[kind],m=remember(new T.MeshStandardMaterial({color,roughness:.84,...(photo?{map:photo.color,normalMap:photo.normal,normalScale:new T.Vector2(.38,.38)}:kind?{map:textures[kind],bumpMap:textures[kind],bumpScale:kind==='plaster'?.025:kind==='water'?.045:.07}:{}),...extra}));m.userData.worldSurface=photo?kind:null;materials.set(key,m);}return materials.get(key);}
 
  const M={stone:mat('#d5c9b5','stone'),plaster:mat('#d6c6a8','plaster'),roof:mat('#b98369','roof'),wood:mat('#d2b99b','wood'),darkwood:mat('#665849','wood'),iron:mat('#47534f','',{metalness:.5,roughness:.5}),glass:mat('#75969c','',{metalness:.28,roughness:.22}),leaf:mat('#6d7950'),trunk:mat('#786b55','wood'),linen:mat('#d9d5c4'),water:mat('#82b5b9','',{metalness:.25,roughness:.2})};
@@ -129,7 +129,7 @@ export function createWorldArt(scene,area,{mobile=false}={}){
   if(list.length<2)continue;const geos=list.map(o=>o.geometry.clone().applyMatrix4(o.matrixWorld));const merged=T.mergeGeometries(geos,false);geos.forEach(g=>g.dispose());if(!merged)continue;
   const m=new T.Mesh(remember(merged),list[0].material);m.castShadow=['#d6c6a8','#b98369','#9e6347','#756a55','#68765b','#7e876b','#899076','#5d7056'].includes('#'+m.material.color.getHexString());m.receiveShadow=true;root.add(m);list.forEach(o=>o.removeFromParent());
  }
- return {root,player,personModels,resources,geometryCount:geometries.size,dispose(){resources.forEach(r=>r.dispose?.());root.removeFromParent();},animate(time,moving){
+ return {root,player,personModels,resources,textureReady,photoTextures,geometryCount:geometries.size,dispose(){resources.forEach(r=>r.dispose?.());root.removeFromParent();},animate(time,moving){
   detail.animate(time);
   for(const p of people){const walking=p===player&&moving;const a=walking?Math.sin(time*8)*.45:Math.sin(time*1.2+p.group.id)*.015;p.legs[0].rotation.x=a;p.legs[1].rotation.x=-a;p.arms[0].rotation.x=-a*.7;p.arms[1].rotation.x=a*.7;}
  }};
