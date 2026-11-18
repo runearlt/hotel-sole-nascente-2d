@@ -637,3 +637,11 @@ body.at-entry { overflow: hidden; background: #183e3c; }
 .in-game .town-stage:has(.mini-workspace) { container-type:normal; isolation:auto; }
 .in-game .game-heading .eyebrow::after { content:' · 3D'; }
 @media (max-width:760px) { .world-label { font-size:10px; padding:5px 7px; } .world-prompt { bottom:117px; max-width:calc(100% - 24px); font-size:11px; } }
+
+/* Quiet wayfinding, subordinate to the architecture and workbook. */
+.world-guidance {position:absolute;right:16px;top:80px;z-index:1;width:178px;padding:8px;background:#f4f0e6e8;border:1px solid #b6b9a9;border-radius:5px;box-shadow:0 3px 16px #293d3420;color:#344a43;}
+.world-guidance[hidden],.world-guidance canvas[hidden],.world-guidance p[hidden]{display:none;}
+.world-guidance .guide-toggle {width:100%;background:transparent;border:0;text-align:left;padding:2px 0 7px;font:600 10px system-ui;color:#4f6257;}
+.world-guidance canvas {position:static!important;width:160px!important;height:110px!important;transform:none!important;display:block;border-radius:2px;}
+.world-guidance p {font:500 10px/1.4 system-ui;margin:7px 0 0;}
+@media(max-width:760px){.world-guidance{right:9px;top:128px;width:132px;padding:6px;}.world-guidance canvas{width:118px!important;height:81px!important;}.world-guidance p{font-size:9px;}}
