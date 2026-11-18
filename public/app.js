@@ -1,7 +1,9 @@
 import { SCENARIO, ACTORS } from './config.js';
 import { bakeryOutcome, wineOutcome, eur, round } from './economics.js';
-import { Town, STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
-import { BusinessInterior, ROOM_STAFF } from './interior.js';
+import { STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
+import { Town3D as Town, Interior3D as BusinessInterior, InvestigationWorld } from './world3d.js';
+import { SCENES, fromWorld } from './world-layout.js';
+import { ROOM_STAFF } from './interior.js';
 import { answerFreeQuestion, FREE_AGENTS } from './free-agents.js';
 import { numericInput } from './input-checks.js';
 import { blankCaseHotel, caseHotelTask, evaluateCaseHotel, caseHotelComplete, caseHotelStage } from './case-hotel.js';
@@ -11,7 +13,7 @@ const main = document.querySelector('#main');
 const ROOM_IDS = ['hotel', 'bakery', 'winery'];
 const emptyScratch = () => ({ left: '', operator: '+', right: '', notes: '' });
 const blank = () => ({
-  mode: null, view: 'town', actor: null, overlay: null, mapVersion: 2, caseVersion: 3, extensionVersion: 2, player: { x: 500, y: 250, color: '#477f9a' },
+  mode: null, view: 'town', actor: null, overlay: null, worldVersion: 1, mapVersion: 2, caseVersion: 3, extensionVersion: 2, player: { x: 500, y: 250, color: '#477f9a' },
   hotelPlayer: { x: 450, y: 456, color: '#477f9a' }, bakeryPlayer: { x: 450, y: 480, color: '#477f9a' }, wineryPlayer: { x: 450, y: 480, color: '#477f9a' },
   roomPeople: { hotel: 'lucia', bakery: 'marta', winery: 'sofia' }, notebookReturn: 'town', streetId: null, street: {},
   interviews: { hotel: [], bakery: [], winery: [] }, replies: {}, visits: [],
@@ -56,7 +58,12 @@ if (stored && stored.mapVersion !== 2) {
 }
 state.scratchpads ||= {};
 for (const actor of ['hotel', 'bakery', 'winery']) state.scratchpads[actor] = { ...emptyScratch(), ...state.scratchpads[actor] };
-let town = null, interior = null, toastTimer = null, lastMoveSave = 0, storageUnavailable = false;
+if (stored && stored.worldVersion !== 1) {
+  state.player = {...state.player,...fromWorld(SCENES.town.spawn)};
+  for (const room of ROOM_IDS) state[`${room}Player`] = {...state[`${room}Player`],...fromWorld(SCENES[room].spawn)};
+  state.worldVersion = 1;
+}
+let town = null, interior = null, entryScene = null, sceneView = null, toastTimer = null, lastMoveSave = 0, storageUnavailable = false;
 const pendingQuestions = new Map();
 const conversations = new Map(); // Per actor, current page session only; notebook evidence stays saved.
 let conversationId=crypto.randomUUID();
@@ -222,7 +229,7 @@ function roomView(actor) {
   const title = actor === 'hotel' ? 'Inside the hotel' : actor === 'bakery' ? 'Inside the bakery' : 'Inside the vineyard';
   return `<div class="game-heading"><div><p class="eyebrow">${place}</p><h1>${title}</h1></div><span class="game-day">${finished} / ${steps.length} room steps</span></div>
     <section class="game-shell business-shell" aria-label="${esc(title)}">
-      <div class="town-stage room-stage ${actor}-room"><canvas id="room-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable ${actor} interior with ${Object.values(staff).map(p => p.name).join(' and ')}, a calculation workspace, and a town exit. Move with arrow keys or WASD; E interacts. People and places can be clicked."></canvas>${state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
+      <div class="town-stage room-stage ${actor}-room"><canvas id="room-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable ${actor} interior with ${Object.values(staff).map(p => p.name).join(' and ')}, a calculation workspace, and a town exit. Move with arrow keys or WASD; E interacts. Drag to rotate the 3D camera; scroll to zoom. People and places can be clicked."></canvas>${state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
       <div class="game-status"><div class="game-objective"><span>Current objective</span><strong>${esc(objective)}</strong></div>${guide ? `<button class="game-go" data-person="${guide}">Talk to ${esc(staff[guide].name)} <span aria-hidden="true">→</span></button>` : actor === 'hotel' && caseHotelComplete(state.caseHotel) ? '<button class="game-go" data-view="notebook">Review notebook →</button>' : townNext ? `<button class="game-go" data-view="town">Return to town <span aria-hidden="true">→</span></button>` : `<button class="game-go" data-action="workspace">Open workspace <span aria-hidden="true">→</span></button>`}<div class="game-steps" role="img" aria-label="${finished} of ${steps.length} room steps complete">${steps.map(done => `<i class="${done ? 'done' : ''}"></i>`).join('')}</div></div>
       <div class="town-controls"><span>Walk to a person or click them to talk. The desk opens your calculations.</span><div class="touch-controls" aria-label="Movement controls"><button data-move="arrowleft" aria-label="Move left" title="Move left">◀</button><button data-move="arrowup" aria-label="Move up" title="Move up">▲</button><button data-move="arrowdown" aria-label="Move down" title="Move down">▼</button><button data-move="arrowright" aria-label="Move right" title="Move right">▶</button><button data-action="talk" aria-label="Interact nearby" title="Interact nearby">✦</button></div></div>
     </section>
@@ -372,11 +379,16 @@ function notebookView() {
   <section class="panel full"><h2>Current results</h2><div class="field-grid"><div><div class="metric-row"><span>Hotel TR and MR</span><strong>${state.caseHotel.mr ? 'Completed' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel elasticity</span><strong>${state.caseHotel.elasticity ? 'Reference elasticity checked' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel advice</span><strong>${state.caseHotel.interpretation ? 'Saved' : 'To write'}</strong></div></div><div><div class="metric-row"><span>Bakery extension</span><strong>${state.breakfast.decision ? `${state.breakfast.decision.bakers} bakers` : 'Not decided'}</strong></div><div class="metric-row"><span>Wine extension</span><strong>${state.winery.choice ? (state.winery.choice === 'house' ? 'House' : 'Mixed') : 'Not decided'}</strong></div></div></div><p class="muted" style="font-size:12px">The active hotel demonstration uses EUR and an 80-room limit. Bakery and winery are separate illustrative euro exercises. Export your notebook before clearing browser storage.</p></section></div>`;
 }
 function render() {
-  if (town) { town.destroy(); town = null; }
-  if (interior) { interior.destroy(); interior = null; }
+  const showEntry = entryOpen || !state.mode;
+  const reuseScene = !showEntry && sceneView === state.view && Boolean(town || interior);
+  const retainedCanvas = reuseScene ? main.querySelector('#town-canvas, #room-canvas') : null;
+  if (!reuseScene) {
+    if (town) { town.destroy(); town = null; }
+    if (interior) { interior.destroy(); interior = null; }
+  }
+  if (entryScene) { entryScene.destroy(); entryScene = null; }
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
   document.querySelector('#notebook-count').textContent = state.log.length;
-  const showEntry = entryOpen || !state.mode;
   document.body.classList.toggle('at-entry', showEntry);
   document.body.classList.toggle('in-game', !showEntry);
   document.querySelector('.header').inert = showEntry;
@@ -384,21 +396,28 @@ function render() {
   if (storageUnavailable) main.insertAdjacentHTML('afterbegin', '<p class="notice" role="status">Browser storage is unavailable. Keep this tab open and export your notebook before leaving; your work cannot survive a reload.</p>');
   restoreDrafts();
   if (showEntry) {
+    entryScene = new InvestigationWorld(main.querySelector('#entry-canvas'), {...state.player}, {area:'town',preview:true});
+    sceneView = null;
     requestAnimationFrame(() => { if (!main.querySelector('.entry-card')?.contains(document.activeElement)) main.querySelector('[data-mode]')?.focus({preventScroll:true}); });
     return;
   }
+  if (retainedCanvas) {
+    main.querySelector('#town-canvas, #room-canvas')?.replaceWith(retainedCanvas);
+    (town || interior).attach();
+  }
   if (state.view === 'town') {
-    town = new Town(document.querySelector('#town-canvas'), state.player, visit, (_, force) => {
+    if (!town) town = new Town(document.querySelector('#town-canvas'), state.player, visit, (_, force) => {
       const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
     }, label => toast(`${label} opens in a later district. Try the hotel, bakery, or vineyard.`), openStreet);
     town.paused = !!state.overlay;
   } else if (ROOM_IDS.includes(state.view)) {
     const actor = state.view;
-    interior = new BusinessInterior(document.querySelector('#room-canvas'), state[`${actor}Player`], actor, talkRoomPerson, () => { state.actor = actor; openWorkspace(); }, () => go('town'), force => {
+    if (!interior) interior = new BusinessInterior(document.querySelector('#room-canvas'), state[`${actor}Player`], actor, talkRoomPerson, () => { state.actor = actor; openWorkspace(); }, () => go('town'), force => {
       const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
     }, roomGuide(actor));
     interior.paused = !!state.overlay;
   }
+  sceneView = state.view;
   if (state.view === 'town' || ROOM_IDS.includes(state.view)) {
     bindTouch();
     if (state.overlay) requestAnimationFrame(() => {
@@ -409,7 +428,7 @@ function render() {
   }
 }
 function modeView() {
-  return `<section class="investigation-entry" aria-labelledby="mode-title"><div class="entry-world" aria-hidden="true"></div><div class="entry-veil" aria-hidden="true"></div><section class="entry-card" role="dialog" aria-modal="true" aria-labelledby="mode-title" aria-describedby="entry-description"><p class="entry-kicker">A managerial economics investigation</p><p class="entry-location">THE ITALIAN COAST · HOTEL SOLE NASCENTE</p><h1 id="mode-title">Investigate the hotel.<br>Build your recommendation.</h1><p id="entry-description">Step inside an 80-room hotel. Interview the staff, gather the evidence and work out your own pricing recommendation.</p><div class="entry-steps" aria-label="Your investigation"><span>01 <b>Ask questions</b></span><span>02 <b>Do the calculations</b></span><span>03 <b>Make your case</b></span></div><button type="button" class="entry-start" data-mode="free">Start investigation <span aria-hidden="true">→</span></button><p class="entry-resume">${state.mode ? 'Your saved investigation will continue where you left off.' : 'Your calculations and notes are saved in this browser.'}</p><a class="entry-brief" href="student-case.html" target="_blank" rel="noopener">Read the student case brief ↗</a><p class="entry-optional">The hotel is the main case. Bakery, wine and street exercises are optional.</p></section><p class="entry-footer">HOTEL SOLE NASCENTE <span>Investigate. Calculate. Decide.</span></p></section>`;
+  return `<section class="investigation-entry" aria-labelledby="mode-title"><div class="entry-world" aria-hidden="true"><canvas id="entry-canvas"></canvas></div><div class="entry-veil" aria-hidden="true"></div><section class="entry-card" role="dialog" aria-modal="true" aria-labelledby="mode-title" aria-describedby="entry-description"><p class="entry-kicker">A managerial economics investigation</p><p class="entry-location">THE ITALIAN COAST · HOTEL SOLE NASCENTE</p><h1 id="mode-title">Investigate the hotel.<br>Build your recommendation.</h1><p id="entry-description">Step inside an 80-room hotel. Interview the staff, gather the evidence and work out your own pricing recommendation.</p><div class="entry-steps" aria-label="Your investigation"><span>01 <b>Ask questions</b></span><span>02 <b>Do the calculations</b></span><span>03 <b>Make your case</b></span></div><button type="button" class="entry-start" data-mode="free">Start investigation <span aria-hidden="true">→</span></button><p class="entry-resume">${state.mode ? 'Your saved investigation will continue where you left off.' : 'Your calculations and notes are saved in this browser.'}</p><a class="entry-brief" href="student-case.html" target="_blank" rel="noopener">Read the student case brief ↗</a><p class="entry-optional">The hotel is the main case. Bakery, wine and street exercises are optional.</p></section><p class="entry-footer">HOTEL SOLE NASCENTE <span>Investigate. Calculate. Decide.</span></p></section>`;
 }
 function bindTouch() {
   document.querySelectorAll('[data-move]').forEach(button => {
