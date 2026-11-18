@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 const URL = process.env.GAME_URL || 'http://127.0.0.1:8174/';
 const COUNT = Number(process.env.STUDENTS || 100);
 const SEED = 20261028;
+const OFFSET = Number(process.env.SIMULATION_OFFSET || 0);
 
 function random(seed) {
   let value = seed >>> 0;
@@ -11,7 +12,7 @@ function random(seed) {
 
 const rng = random(SEED);
 const trRng = random(SEED + 1);
-const profiles = Array.from({ length: COUNT }, (_, index) => {
+const profiles = Array.from({ length: COUNT + OFFSET }, (_, index) => {
   const ability = index % 5 === 0 ? 'novice' : index % 5 === 4 ? 'advanced' : 'typical';
   const chance = ability === 'novice' ? 0.7 : ability === 'typical' ? 0.32 : 0.08;
   return {
@@ -24,7 +25,7 @@ const profiles = Array.from({ length: COUNT }, (_, index) => {
     doesStreet: rng() < .25,
     wine: rng() < .5 ? 'house' : 'mixed'
   };
-});
+}).slice(OFFSET);
 
 const browser = await chromium.launch({
   headless: true,
@@ -204,7 +205,7 @@ try {
     await page.unroute('**/api/actor');
     result.outageRecovered=faultInjected;
     results.push(result);
-    if (profile.id % 25 === 0) process.stderr.write(`Simulated ${profile.id}/${COUNT} browser playthroughs\n`);
+    if (results.length % 25 === 0 || results.length === COUNT) process.stderr.write(`Simulated ${results.length}/${COUNT} browser playthroughs (offset ${OFFSET})\n`);
   }
 } finally {
   await browser.close();
@@ -215,7 +216,7 @@ const median = values => {
   return (sorted[Math.floor((sorted.length - 1) / 2)] + sorted[Math.floor(sorted.length / 2)]) / 2;
 };
 const summary = {
-  kind: 'synthetic-browser-playthroughs', seed: SEED, url: URL, count: results.length,
+  kind: 'synthetic-browser-playthroughs', seed: SEED, offset: OFFSET, url: URL, count: results.length,
   completed: results.filter(row => row.complete).length,
   actorReplySources: Object.fromEntries(['mock','boundary','fallback','model'].map(source=>[source,results.reduce((sum,row)=>sum+(row.actorSources[source]||0),0)])),
   typicalMedianEstimatedMinutes: median(results.filter(row => row.ability === 'typical').map(row => row.estimatedMinutes)),
