@@ -1,3 +1,4 @@
+import { fitSceneViewport } from './scene-viewport.js';
 const WIDTH = 900, HEIGHT = 540;
 
 export const HOTEL_STAFF = {
@@ -169,6 +170,7 @@ export class BusinessInterior {
   }
 
   draw() {
+    fitSceneViewport(this.canvas, this.player, WIDTH, HEIGHT);
     const c = this.ctx;
     c.setTransform(this.canvas.width / WIDTH, 0, 0, this.canvas.height / HEIGHT, 0, 0);
     c.imageSmoothingEnabled = true;
