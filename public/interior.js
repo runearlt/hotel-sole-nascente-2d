@@ -1,4 +1,4 @@
-import { fitSceneViewport } from './scene-viewport.js';
+import { fitSceneViewport, drawScenePerson, sceneCaption } from './scene-viewport.js';
 const WIDTH = 900, HEIGHT = 540;
 
 export const HOTEL_STAFF = {
@@ -180,30 +180,19 @@ export class BusinessInterior {
     this.marker(c, this.room.exit.x, this.room.exit.y, 'TOWN', '#654b3f');
     for (const [id, p] of Object.entries(this.staff)) {
       this.sprite(c, p.x, p.y, p.color, id);
-      this.marker(c, p.x, p.y - 42, p.name.toUpperCase(), id === this.recommended ? '#27675c' : '#29484a');
-      if (id === this.recommended) this.marker(c, p.x, p.y - 64, '!', '#dfaa4d');
+      this.marker(c, p.x, p.y - 37, p.name, id === this.recommended ? '#27675c' : '#29484a');
     }
     this.sprite(c, this.player.x, this.player.y, this.player.color, 'player');
-    this.marker(c, this.player.x, this.player.y - 43, 'YOU', '#24464f');
+    this.marker(c, this.player.x, this.player.y - 37, 'You', '#24464f');
   }
 
   marker(c, x, y, text, color) {
-    const width = Math.max(20, text.length * 7 + 14);
-    c.fillStyle = color; c.fillRect(Math.round(x - width / 2), Math.round(y - 13), width, 17);
-    c.fillStyle = '#fff5df'; c.textAlign = 'center'; c.font = 'bold 10px monospace'; c.fillText(text, x, y - 1);
+    const captions={WORKSPACE:'Workspace',CALCULATE:'Workspace',TOWN:'Return to town'};
+    sceneCaption(c,x,y,captions[text]||text,text==='You');
   }
 
   sprite(c, x, y, shirt, kind) {
-    x = Math.round(x); y = Math.round(y);
-    c.fillStyle = '#243d3d77'; c.fillRect(x - 10, y + 10, 21, 5);
-    c.fillStyle = '#2a3a42'; c.fillRect(x - 7, y + 1, 6, 12); c.fillRect(x + 2, y + 1, 6, 12);
-    c.fillStyle = shirt; c.fillRect(x - 10, y - 15, 20, 18);
-    c.fillStyle = '#efc79c'; c.fillRect(x - 8, y - 29, 16, 15);
-    c.fillStyle = kind === 'marco' ? '#594536' : kind === 'elena' ? '#473b3b' : '#333f46';
-    c.fillRect(x - 9, y - 32, 18, 7);
-    c.fillStyle = '#293d43'; c.fillRect(x - 4, y - 22, 2, 2); c.fillRect(x + 3, y - 22, 2, 2);
-    if (kind === 'elena') { c.fillStyle = '#f7e6bd'; c.fillRect(x + 7, y - 9, 8, 11); }
-    if (kind === 'lucia') { c.fillStyle = '#dfbc70'; c.fillRect(x + 5, y - 9, 3, 3); }
-    if (kind === 'marco') { c.fillStyle = '#f6e9cf'; c.fillRect(x - 4, y - 11, 8, 5); }
+    const outfits={lucia:'#485f67',marco:'#596e65',elena:'#857564',marta:'#85735f',paolo:'#687675',sofia:'#726e78',giulia:'#5f7268',player:'#3f5660'};
+    drawScenePerson(c,x,y,outfits[kind]||shirt,kind,kind==='player' && (this.keys.size>0 || this.path.length>0),performance.now()/16);
   }
 }
