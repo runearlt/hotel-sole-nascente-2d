@@ -24,3 +24,17 @@ test('hotel furniture and outside walls block movement', () => {
   assert.equal(walkable.call({ roomId: 'bakery' }, 100, 300), false);
   assert.equal(walkable.call({ roomId: 'winery' }, 450, 480), true);
 });
+
+
+test('full-page camera covers the viewport without stretching and keeps the player visible', async () => {
+  const {fitSceneViewport}=await import('../public/scene-viewport.js');
+  for(const [w,h] of [[1440,836],[390,763],[2500,900]])for(const player of [{x:450,y:270},{x:40,y:500},{x:850,y:80}]) {
+    const canvas={parentElement:{matches:()=>true,clientWidth:w,clientHeight:h},style:{}};
+    fitSceneViewport(canvas,player,900,540);
+    const cw=parseFloat(canvas.style.width),ch=parseFloat(canvas.style.height),left=parseFloat(canvas.style.left),top=parseFloat(canvas.style.top);
+    assert.ok(cw>=w && ch>=h);assert.ok(Math.abs(cw/ch-900/540)<1e-9);
+    assert.ok(left<=0 && left+cw>=w-1e-7 && top<=0 && top+ch>=h-1e-7);
+    const px=left+player.x*cw/900,py=top+player.y*ch/540;
+    assert.ok(px>=0 && px<=w && py>=0 && py<=h);
+  }
+});
