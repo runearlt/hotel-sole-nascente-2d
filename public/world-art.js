@@ -1,4 +1,4 @@
-aimport {SURFACES} from './surface-textures.js';
+import {SURFACES} from './surface-textures.js';
 import * as T from './vendor/three-bundle.js';
 import {addGardaDetails} from './world-detail.js';
 import {SCENES,groundHeight} from './world-layout.js';
