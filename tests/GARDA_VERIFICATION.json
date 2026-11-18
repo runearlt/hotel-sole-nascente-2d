@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-11-18",
+  "status": "Local checks passed; hosted commit must be verified separately",
+  "offline": {
+    "timestamp": "2026-11-18T14:42:19.713Z",
+    "mode": "offline-mocked-provider",
+    "suite": "all",
+    "studentCount": 100,
+    "simulationOffset": 0,
+    "paidCalls": 0,
+    "liveProviderVerified": false,
+    "results": [
+      {
+        "name": "unit-and-http",
+        "exitCode": 0
+      },
+      {
+        "name": "student-journeys",
+        "exitCode": 0
+      },
+      {
+        "name": "100-student-simulation",
+        "exitCode": 0
+      }
+    ],
+    "stats": {
+      "mockProviderCalls": 1555,
+      "realProviderCalls": 0,
+      "sources": {
+        "mock": 1555,
+        "boundary": 2
+      },
+      "fallbackReasons": {}
+    },
+    "passed": true
+  },
+  "graphics": {
+    "timestamp": "2026-11-18T14:45:49.294Z",
+    "url": "http://127.0.0.1:61779/",
+    "paidCalls": 0,
+    "results": [
+      {
+        "viewport": "1440x900",
+        "metrics": {
+          "triangles": 170944,
+          "calls": 178,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 25
+        },
+        "cameraAudit": {
+          "checked": 2184,
+          "blocked": 0
+        },
+        "passed": true
+      },
+      {
+        "viewport": "390x844",
+        "metrics": {
+          "triangles": 130954,
+          "calls": 120,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 25
+        },
+        "cameraAudit": {
+          "checked": 2184,
+          "blocked": 0
+        },
+        "passed": true
+      },
+      {
+        "webglUnavailable": "Helpful message and accessible workspace verified",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "unchangedLearningModules": [
+    "public/config.js",
+    "public/economics.js",
+    "public/case-hotel.js",
+    "public/free-agents.js",
+    "server/"
+  ],
+  "assets": "See GARDA_SCENE_PLAN.md: original geometry plus two self-hosted Poly Haven CC0 materials.",
+  "limits": [
+    "Architectural real-time simulation, not GTA V photorealism",
+    "WebGL 2 required for graphics; accessible workbook and location buttons remain available",
+    "No live paid API requests made"
+  ],
+  "sha256": {
+    ".github/workflows/student-exercises.yml": "0ddd92bcbd9ee386d942fe6fa49f57c4306bd78d71fbd231af859f320eb44975",
+    "THREE_D_VERSION.md": "90a09f3da035280f4f199740e60caf962eb28f4a97d4997a63e5f7e05dd157b7",
+    "public/app.js": "d72c6128827f9df9fac3cd15c1cfe9c86f0015239fdb7d5293eb72ee3c2b6365",
+    "public/styles.css": "26ec97db56e906dd0220e02a6ff0a4d8ffce46429822dd3e0d63ad428c0e4cd5",
+    "public/vendor/three-bundle.js": "fa021685043581f9b43455addabe43dd8a0717865a5c5c4d65be92a1a143bed9",
+    "public/world-art.js": "32c6662944b98e45170954bc3d82e7dea81271c518c85c025cb0289d51c2984f",
+    "public/world-layout.js": "139863c27ab20e6fd262fa27b967684129413fb30b1b6646511630efd9e0636b",
+    "public/world3d.js": "be44de065746f742f0f72f5be6bdfc7f3e4a28575dc45d46c346b29c5f016054",
+    "scripts/three-entry.js": "276e386482cd6e311aa060b0ea82968a68709b3a4f4516b80600876cbb3f2460",
+    "tests/world-layout.test.mjs": "e5a5430608aa13c1737c6c85783d06c2b552e011ce501a90b93cb86ac7e604b3",
+    "tests/world3d-browser.mjs": "432b349409f3ab71c67c77a6706f6b69c6f0bc5f725a256296cef712c6e63414",
+    "GARDA_SCENE_PLAN.md": "6b17045a714ae9c3f4c62612e4ec20ee141715d617364fceabba4aa145ba6d87",
+    "public/world-detail.js": "7efb91ee2904910432cc17a2d21dfadcd4735850486a1033966ea893c22c03d2",
+    "public/surface-textures.js": "9b1260b07efc47617f61fdc28831599035b69014fe938578aa5b3471f3f9ff45"
+  }
+}
