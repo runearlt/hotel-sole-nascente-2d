@@ -63,11 +63,11 @@ export function createWorldArt(scene,area,{mobile=false}={}){
   const pivot=(x,y,z)=>{const q=new T.Group();q.position.set(x,y,z);g.add(q);return q;};
   const legs=[];for(const side of [-1,1]){const p=pivot(side*.115,.82,0);cylinder(0,-.35,0,.085,.07,.7,mat('#3f4547'),p,8);box(0,-.76,.055,.16,.13,.29,mat('#343a39'),p);legs.push(p);}
   const torso=cylinder(0,1.14,0,.22,.17,.63,outfit,g,10);torso.scale.z=.7;
-  cylinder(0,1.53,0,.065,.07,.16,skin,g,8);sphere(0,1.72,0,.145,.185,.14,skin,g);sphere(0,1.83,-.025,.15,.09,.14,mat('#504a40'),g);
+  cylinder(0,1.53,0,.065,.07,.16,skin,g,8);sphere(0,1.72,0,.12,.135,.12,skin,g);sphere(0,1.82,-.025,.125,.065,.12,mat('#504a40'),g);
   const arms=[];for(const side of [-1,1]){const p=pivot(side*.25,1.4,0);cylinder(0,-.24,0,.065,.055,.49,outfit,p,8);sphere(0,-.52,0,.055,.075,.055,skin,p);arms.push(p);}
   if(target.id==='elena')box(.31,1.05,.1,.04,.35,.24,M.wood,g);
   if(target.id==='paolo'||target.id==='marta')box(0,1.03,.15,.3,.55,.025,M.linen,g);
-  box(0,.85,.125,.31,.06,.035,mat('#393d37'),g);box(0,1.39,.16,.045,.21,.025,M.linen,g);for(const side of [-1,1]){const collar=box(side*.07,1.43,.14,.1,.12,.025,M.linen,g);collar.rotation.z=side*.35;sphere(side*.055,1.75,.126,.018,.012,.012,mat('#343832'),g);sphere(side*.145,1.72,0,.025,.045,.035,skin,g);}sphere(0,1.71,.14,.028,.038,.035,skin,g);box(0,1.63,.13,.055,.012,.012,mat('#886c5b'),g);
+  box(0,.85,.125,.31,.06,.035,mat('#393d37'),g);box(0,1.39,.16,.045,.21,.025,M.linen,g);for(const side of [-1,1]){const collar=box(side*.07,1.43,.14,.1,.12,.025,M.linen,g);collar.rotation.z=side*.35;sphere(side*.047,1.75,.112,.013,.009,.012,mat('#343832'),g);sphere(side*.12,1.72,0,.022,.035,.028,skin,g);}sphere(0,1.71,.14,.028,.038,.035,skin,g);box(0,1.65,.118,.05,.009,.012,mat('#886c5b'),g);
   const model={group:g,legs,arms,phase:0,id:target.id||'player'};people.push(model);return model;
  }
  const personModels=SCENES[area].targets.filter(t=>t.kind==='person'||t.kind==='street').map(t=>({target:t,model:human(t)}));
