@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-11-18",
+  "status": "Local verification complete; publication and deployment pending",
+  "offline": {
+    "timestamp": "2026-11-18T11:00:37.484Z",
+    "mode": "offline-mocked-provider",
+    "paidCalls": 0,
+    "liveProviderVerified": false,
+    "results": [
+      {
+        "name": "unit-and-http",
+        "exitCode": 0
+      },
+      {
+        "name": "student-journeys",
+        "exitCode": 0
+      },
+      {
+        "name": "100-student-simulation",
+        "exitCode": 0
+      }
+    ],
+    "stats": {
+      "mockProviderCalls": 1555,
+      "realProviderCalls": 0,
+      "sources": {
+        "mock": 1555,
+        "boundary": 2
+      },
+      "fallbackReasons": {}
+    },
+    "passed": true
+  },
+  "rendering": {
+    "timestamp": "2026-11-18T11:02:47.094Z",
+    "url": "http://127.0.0.1:57377/",
+    "paidCalls": 0,
+    "results": [
+      {
+        "viewport": "1440x900",
+        "metrics": {
+          "triangles": 82544,
+          "calls": 110,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 7
+        },
+        "passed": true
+      },
+      {
+        "viewport": "390x844",
+        "metrics": {
+          "triangles": 38796,
+          "calls": 49,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 7
+        },
+        "passed": true
+      },
+      {
+        "webglUnavailable": "Helpful message and accessible workspace verified",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "sourceSha256": {
+    "public/world-layout.js": "5e3e62cf4e01046c45b4493c4e8c47ebfa64bf2b106c0992aa1c8e70362b6843",
+    "public/world-art.js": "efa7764922e3a3e0d376998a182769f2b393cfcc86b5e0d8e648a44b637e78b0",
+    "public/world3d.js": "5c2ea8c7e8f7e6852613f8b489c76d3c303e445eba83cf339b2d9014f222607f",
+    "public/app.js": "11dfb2cadf898057b5fcee537f173f2527871e19e0826daf2f6d45e8bc973822",
+    "public/styles.css": "22350c214ecbaf70c0379c87fb6aff1348e0f7c9e8906596f4bfa41ad6d979b5",
+    "public/index.html": "4206fd3f057e6958a069e29bef3c21c66176f78efe0b7e0aae46d920b7aa5ca3",
+    "public/vendor/three-bundle.js": "724e5d0a28374b7f3364cefbc2073eb1be4028226c4488294e098461a433dfff",
+    "public/vendor/THREE-LICENSE.txt": "8b378ebe60e2fe500158cb0ac71cb5e8b7d92953c2abcc63a0eb90499653b5bc",
+    "scripts/three-entry.js": "9123bff8f61e57d9250bc77a62126a368ce9e97a7c4b8ea81eff2ced86ec69cf",
+    "scripts/build-3d.mjs": "082de07d6995ab7023c40a77d2041426aea244396e4d78652b5f432536d37b85",
+    "tests/world-layout.test.mjs": "58bae05c398d19d99359cc48ce835b36c0ebd139ac62d0cfae66e21ca82cd797",
+    "tests/world3d-browser.mjs": "a6a7a10b11f30f9cd2a22e7256ab30c77ff608f407f03af2001ea6870899c9d0",
+    "package.json": "63cc1dcdf9e0c041420ed1d82fb6670b653581915edc1d7da7dcdda12e2f2f08",
+    "package-lock.json": "947c042f08736ca448db17c73a7a4a197835f7f10749f6f20a33f3023f4d7e65",
+    ".github/workflows/student-exercises.yml": "f260b34b6c086306dd986722c844dd4db9714b94398ee822d450d8d67f8ed18c",
+    "THREE_D_VERSION.md": "5e513dac24cb793595f7bde25d7ab92427bd2f9903774c3f0b61062e200eb1c0"
+  },
+  "limits": [
+    "Actor responses mocked: no live provider claim",
+    "No universal hardware performance guarantee",
+    "Deployment is not established by this local report"
+  ]
+}
