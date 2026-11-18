@@ -2,13 +2,15 @@
 export const WORLD_SCALE=10;
 export const toWorld=p=>({x:(p.x-450)/WORLD_SCALE,z:(p.y-270)/WORLD_SCALE});
 export const fromWorld=p=>({x:p.x*WORLD_SCALE+450,y:p.z*WORLD_SCALE+270});
+export const groundHeight=(area,x,z)=>area==='town' && x>19 && z>10?Math.min(1.25,(z-10)*.055)*Math.min(1,(x-19)/2):0;
+export const GARDA_PROPS=[{kind:'bike',x:-35,z:5,rot:1.57,w:1.5,d:.65},{kind:'bike',x:-33,z:5,rot:1.57,w:1.5,d:.65},{kind:'bin',x:14,z:7.8,w:.55,d:.55},{kind:'bin',x:-23,z:18,w:.55,d:.55},{kind:'bed',x:4,z:-6,w:8,d:1.3},{kind:'bed',x:12,z:-8,w:1.4,d:7},...[-25,-16,-7].map(x=>({kind:'table',x,z:-24.5,w:3,d:2}))];
 export const SCENES={
  town:{bounds:[-44,44,-26,26],spawn:{x:4,z:6},obstacles:[
   {x:-17,z:-14,w:28,d:16,id:'hotel-building'},
   {x:-28,z:14,w:16,d:10,id:'bakery-building'},
   {x:30,z:-15,w:16,d:12,id:'winery-building'},
   {x:0,z:13,w:5.5,d:5.5,id:'fountain'},
-  {x:15,z:15,w:2.8,d:1.2,id:'bench-east'},
+  {x:15,z:15,w:1.2,d:2.8,id:'bench-east'},
   {x:-9,z:12,w:1.2,d:3,id:'bench-west'}],
   targets:[{id:'hotel',kind:'entrance',name:'Hotel reception',x:-17,z:-4.7},{id:'bakery',kind:'entrance',name:'Bakery kitchen',x:-28,z:20},{id:'winery',kind:'entrance',name:'Vineyard tasting room',x:30,z:-8},
    {id:'ana',kind:'street',name:'Ana',role:'Visitor · Optional',x:10,z:5},{id:'enzo',kind:'street',name:'Enzo',role:'Local guide · Optional',x:19,z:20}]},
@@ -34,6 +36,9 @@ export const SCENES={
   targets:[{id:'sofia',kind:'person',name:'Sofia',role:'Winemaker',x:-3,z:0},{id:'giulia',kind:'person',name:'Giulia',role:'Inventory manager',x:4,z:0},
    {id:'workspace',kind:'workspace',name:'Purchasing workspace',x:7,z:5},{id:'town',kind:'exit',name:'Return to town',x:0,z:9.5}]}
 };
+for(const x of [27.8,32.2])SCENES.town.obstacles.push({x,z:10.7,w:.5,d:1.9,id:'open-vineyard-gate'});
+for(const z of [1.5,4.5])SCENES.winery.obstacles.push({x:-8,z,w:.6,d:.6,id:'tasting-chair'});
+for(const p of GARDA_PROPS)SCENES.town.obstacles.push({...p,id:'garda-'+p.kind});
 // Physical planting and furniture footprints share the same positions as the scene models.
 for (const [x,z] of [[-39,-3],[-33,-3],[-5,-3],[16,-5],[41,-4],[-14,8],[-12,20],[12,21],[40,22],[-40,22],[-33,-23],[-1,-23],[-36,-21],[-2,-20],[20,-24],[41,-24],[17,-15],[42,-15]]) SCENES.town.obstacles.push({x,z,w:1.4,d:1.4,id:'planter'});
 for(let row=0;row<7;row++)for(let n=0;n<8;n++) SCENES.town.obstacles.push({x:21+n*2.6,z:12+row*1.65,w:1.3,d:.55,id:'vine'});
