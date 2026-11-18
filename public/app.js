@@ -20,6 +20,7 @@ const blank = () => ({
   winery: { choice: null, reason: '' }, hints: {}, drafts: {}, log: []
 });
 let state, stored = null;
+let entryOpen = true;
 try { stored = JSON.parse(localStorage.getItem(KEY) || 'null'); state = { ...blank(), ...stored }; } catch { state = blank(); }
 state.interviews ||= { hotel: [], bakery: [], winery: [] };
 state.breakfast ||= blank().breakfast; state.winery ||= blank().winery;
@@ -146,6 +147,7 @@ function closeOverlay() {
   document.querySelector('#town-canvas, #room-canvas')?.focus();
 }
 function openWorkspace() {
+  entryOpen = false;
   state.mode ||= 'free';
   if (!ROOM_IDS.includes(state.actor)) state.actor = 'hotel';
   if (state.view !== 'town' && !ROOM_IDS.includes(state.view)) state.view = state.actor;
@@ -374,10 +376,17 @@ function render() {
   if (interior) { interior.destroy(); interior = null; }
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
   document.querySelector('#notebook-count').textContent = state.log.length;
-  main.innerHTML = !state.mode ? modeView() : state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
+  const showEntry = entryOpen || !state.mode;
+  document.body.classList.toggle('at-entry', showEntry);
+  document.body.classList.toggle('in-game', !showEntry);
+  document.querySelector('.header').inert = showEntry;
+  main.innerHTML = showEntry ? modeView() : state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
   if (storageUnavailable) main.insertAdjacentHTML('afterbegin', '<p class="notice" role="status">Browser storage is unavailable. Keep this tab open and export your notebook before leaving; your work cannot survive a reload.</p>');
   restoreDrafts();
-  if (!state.mode) return;
+  if (showEntry) {
+    requestAnimationFrame(() => { if (!main.querySelector('.entry-card')?.contains(document.activeElement)) main.querySelector('[data-mode]')?.focus({preventScroll:true}); });
+    return;
+  }
   if (state.view === 'town') {
     town = new Town(document.querySelector('#town-canvas'), state.player, visit, (_, force) => {
       const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
@@ -400,7 +409,7 @@ function render() {
   }
 }
 function modeView() {
-  return `<section class="mode-picker" aria-labelledby="mode-title"><p class="eyebrow">Hotel Sole Nascente · 80-room EUR demonstration</p><h1 id="mode-title">Investigate the hotel case</h1><p>Interview the hotel staff to collect two price–quantity observations. Derive demand yourself, then calculate TR, MR and price elasticity and test a room rate against the hotel's capacity.</p><p>Each actor has information appropriate to their role. Read their job descriptions and type your own questions. Bakery, winery and street exercises are optional, with separate illustrative data.</p><p><a href="student-case.html" target="_blank" rel="noopener">Read the student case brief</a></p><button type="button" class="button" data-mode="free">Start investigation</button><p><small>Your work stays on this device. Conversation memory lasts until you reload or restart; collected evidence remains in your notebook.</small></p></section>`;
+  return `<section class="investigation-entry" aria-labelledby="mode-title"><div class="entry-world" aria-hidden="true"></div><div class="entry-veil" aria-hidden="true"></div><section class="entry-card" role="dialog" aria-modal="true" aria-labelledby="mode-title" aria-describedby="entry-description"><p class="entry-kicker">A managerial economics investigation</p><p class="entry-location">THE ITALIAN COAST · HOTEL SOLE NASCENTE</p><h1 id="mode-title">Every room has<br>a story. Find the numbers.</h1><p id="entry-description">Step inside an 80-room hotel. Interview the staff, gather the evidence and work out your own pricing recommendation.</p><div class="entry-steps" aria-label="Your investigation"><span>01 <b>Ask questions</b></span><span>02 <b>Do the calculations</b></span><span>03 <b>Make your case</b></span></div><button type="button" class="entry-start" data-mode="free">Start investigation <span aria-hidden="true">→</span></button><p class="entry-resume">${state.mode ? 'Your saved investigation will continue where you left off.' : 'Your calculations and notes are saved in this browser.'}</p><a class="entry-brief" href="student-case.html" target="_blank" rel="noopener">Read the student case brief ↗</a><p class="entry-optional">The hotel is the main case. Bakery, wine and street exercises are optional.</p></section><p class="entry-footer">HOTEL SOLE NASCENTE <span>Investigate. Calculate. Decide.</span></p></section>`;
 }
 function bindTouch() {
   document.querySelectorAll('[data-move]').forEach(button => {
@@ -541,7 +550,7 @@ main.addEventListener('click', e => {
     state.actor = 'hotel'; state.view = 'hotel'; state.overlay = 'workspace';
     save(); render(); return;
   }
-  const mode = e.target.closest('[data-mode]'); if (mode) { state.mode = 'free'; record('mode', 'game', 'Started free-text conversations'); render(); return; }
+  const mode = e.target.closest('[data-mode]'); if (mode) { entryOpen = false; state.mode = 'free'; record('mode', 'game', 'Started free-text conversations'); render(); return; }
   const view = e.target.closest('[data-view]'); if (view) { go(view.dataset.view); return; }
   const place = e.target.closest('[data-visit]'); if (place) { visit(place.dataset.visit); return; }
   const street = e.target.closest('[data-street]'); if (street) { openStreet(street.dataset.street); return; }
@@ -585,6 +594,14 @@ document.querySelector('.tabs').addEventListener('click', e => {
   const button = e.target.closest('[data-view]'); if (button) go(button.dataset.view);
 });
 window.addEventListener('keydown', e => {
+  if (entryOpen || !state.mode) {
+    if (e.key === 'Tab') {
+      const controls=[...main.querySelectorAll('.entry-card button, .entry-card a')];
+      const first=controls[0],last=controls.at(-1);
+      if (first && (!main.contains(document.activeElement) || (e.shiftKey && document.activeElement===first) || (!e.shiftKey && document.activeElement===last))) { e.preventDefault();(e.shiftKey?last:first).focus(); }
+    }
+    return;
+  }
   if (!['town', ...ROOM_IDS].includes(state.view) || !state.overlay) return;
   if (e.key === 'Escape') { e.preventDefault(); closeOverlay(); return; }
   const dialog=main.querySelector('[role="dialog"]');
@@ -595,5 +612,5 @@ window.addEventListener('keydown', e => {
   }
   if (!(e.target instanceof Element && e.target.closest('input, textarea, select')) && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
-document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); pendingQuestions.clear(); conversationId=crypto.randomUUID(); state = blank(); render(); toast('New simulation started'); });
+document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); pendingQuestions.clear(); conversationId=crypto.randomUUID(); state = blank(); entryOpen = true; render(); toast('New simulation started'); });
 render();
