@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SCENES,toWorld,fromWorld,isWalkable,safePosition,moveWithCollisions,findRoute} from '../public/world-layout.js';
+import {SCENES,toWorld,fromWorld,isWalkable,safePosition,moveWithCollisions,findRoute,groundHeight,GARDA_PROPS} from '../public/world-layout.js';
 test('every 3D actor, entrance, exit and workspace has a collision-free route',()=>{
  for(const [area,s] of Object.entries(SCENES))for(const target of s.targets){assert.ok(isWalkable(area,target.x,target.z),`${area}/${target.id} blocked`);const path=findRoute(area,s.spawn,target);assert.ok(path.length,`${area}/${target.id} unreachable`);assert.ok(path.every(p=>isWalkable(area,p.x,p.z,.36)));assert.ok(Math.hypot(path.at(-1).x-target.x,path.at(-1).z-target.z)<.86);}
 });
@@ -15,4 +15,10 @@ test('3D walls, furniture, buildings and planting cannot be traversed or tunnell
 test('3D saved coordinates round-trip and invalid legacy positions relocate safely',()=>{
  const p={x:521.5,y:279.2};const q=fromWorld(toWorld(p));assert.ok(Math.abs(p.x-q.x)<1e-8 && Math.abs(p.y-q.y)<1e-8);
  for(const area of Object.keys(SCENES)){assert.deepEqual(safePosition(area,{x:Infinity,z:NaN}),SCENES[area].spawn);assert.deepEqual(safePosition(area,SCENES[area].spawn),SCENES[area].spawn);}
+});
+
+test('Lake Garda terrace height rises continuously and props share physical footprints',()=>{
+ assert.equal(groundHeight('hotel',30,20),0);assert.equal(groundHeight('town',18,20),0);assert.ok(groundHeight('town',30,20)>.4);assert.ok(groundHeight('town',19.01,20)<.01);
+ for(const p of GARDA_PROPS)assert.equal(isWalkable('town',p.x,p.z),false);
+ assert.equal(isWalkable('winery',-8,1.5),false);assert.equal(isWalkable('town',30,10.7),true,'Open gate must permit access');
 });
