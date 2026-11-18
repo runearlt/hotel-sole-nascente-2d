@@ -10,9 +10,13 @@
     "test:offline": "node tests/run-offline.mjs",
     "test:student": "node tests/student-journey.mjs",
     "test:simulation": "node tests/simulate-students.mjs",
-    "test:api:live": "node tests/live-actor-api.mjs"
+    "test:api:live": "node tests/live-actor-api.mjs",
+    "build:3d": "node scripts/build-3d.mjs",
+    "test:3d": "node tests/world3d-browser.mjs"
   },
   "devDependencies": {
-    "playwright": "1.62.1"
+    "esbuild": "0.28.2",
+    "playwright": "1.62.1",
+    "three": "0.187.0"
   }
 }
