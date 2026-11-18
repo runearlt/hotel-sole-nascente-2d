@@ -48,7 +48,8 @@ export class InvestigationWorld {
    this.ring=new T.Mesh(new T.TorusGeometry(.5,.018,6,28),new T.MeshBasicMaterial({color:'#b09f72'}));this.ring.rotation.x=-Math.PI/2;this.ring.position.y=.07;this.ring.visible=false;this.scene.add(this.ring);
    this.prompt=document.createElement('button');this.prompt.type='button';this.prompt.className='world-prompt';this.prompt.addEventListener('click',()=>this.interact());this.stage.append(this.prompt);
    this.ready=true;this.canvas.dataset.webgl='ready';this.canvas.setAttribute('aria-label',`Interactive 3D ${this.area==='town'?'Italian coastal district':this.area+' interior'}. Move with WASD or arrow keys, click to walk, drag to turn the camera, scroll to zoom, and press E to interact. Location buttons provide direct access.`);
-   this.resize();this.feedback?.remove();this.feedback=null;this.renderer.setAnimationLoop(t=>this.tick(t));
+   // Draw immediately: Safari can defer animation callbacks in a background window.
+   this.resize();this.tick(performance.now());this.feedback?.remove();this.feedback=null;this.renderer.setAnimationLoop(t=>this.tick(t));
   }catch(error){if(!this.destroyed)this.fail('The 3D environment could not start on this device. Enable WebGL 2 and hardware acceleration, or try a current browser. You can still use the location buttons, Workspace and Notebook to complete the case.');}
  }
  fail(message){this.ready=false;this.canvas.dataset.webgl='unavailable';this.renderer?.setAnimationLoop(null);if(!this.feedback){this.feedback=document.createElement('div');this.stage.append(this.feedback);}this.feedback.className='world-feedback world-failure';this.feedback.setAttribute('role','status');this.feedback.textContent=message;this.labels?.setAttribute('hidden','');if(this.prompt)this.prompt.hidden=true;}
