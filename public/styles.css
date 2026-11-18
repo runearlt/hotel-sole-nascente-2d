@@ -506,3 +506,37 @@ body.at-entry { overflow: hidden; background: #183e3c; }
   .in-game main:has(.mini-workspace, .street-dialogue) { overflow: visible; }
   .in-game .town-stage:has(.mini-workspace, .street-dialogue) { container-type: normal; isolation: auto; overflow: visible; }
 }
+
+/* The simulation is the entire surface below the navigation bar. */
+.in-game main:has(.game-shell) { display: block; }
+.in-game .game-shell { position: absolute; inset: 0; display: block; }
+.in-game .town-stage { position: absolute; inset: 0; height: 100%; container-type: normal; isolation: auto; }
+.in-game .town-stage::before { display: none; }
+.in-game .town-stage canvas { width: 100%; height: 100%; inset: 0 auto auto 0; transform: none; }
+.in-game .game-status { position: absolute; z-index: 1; left: 16px; top: 88px; width: min(490px, calc(100% - 32px)); min-height: 55px; border: 1px solid #74958b88; border-radius: 7px; background: #183b3beF; box-shadow: 0 4px 16px #102d3640; }
+.in-game .game-steps { display: none; }
+.in-game main > .district-links, .in-game main > .interior-actions { position: absolute; z-index: 1; inset: auto 16px 14px; display: flex; width: fit-content; max-width: calc(100% - 32px); padding: 0; gap: 7px; border: 0; background: none; overflow-x: auto; }
+.in-game .district-link, .in-game .interior-actions button { flex: 0 0 auto; min-height: 49px; max-width: 290px; border: 1px solid #6f928088; border-radius: 6px; background: #fff8e7ed; box-shadow: 0 3px 10px #183b3a22; }
+.in-game .district-link:hover, .in-game .interior-actions button:hover { background: #fff8e7; }
+.in-game main > .street-links { position: absolute; z-index: 1; right: 16px; bottom: 77px; width: fit-content; max-width: calc(100% - 32px); margin: 0; padding: 0; border: 0; gap: 5px; background: none; }
+.in-game .street-links > span, .in-game .street-links small { display: none; }
+.in-game .street-links button { min-width: 0; padding: 7px 10px; border: 1px solid #6f928088; border-radius: 5px; background: #fff8e7ed; }
+.in-game .game-shell .town-controls { position: absolute; z-index: 1; left: 16px; bottom: 78px; padding: 5px; border-radius: 6px; background: #183b3bd9; }
+.in-game .town-controls > span { display: none; }
+.in-game main:has([role="dialog"]) > .district-links,
+.in-game main:has([role="dialog"]) > .interior-actions,
+.in-game main:has([role="dialog"]) > .street-links,
+.in-game main:has([role="dialog"]) .game-status,
+.in-game main:has([role="dialog"]) .town-controls { visibility: hidden; }
+@media (min-width: 761px) { .in-game .game-shell .town-controls { display: none; } }
+@media (max-width: 760px) {
+  .in-game .game-status { left: 9px; top: 75px; width: min(420px, calc(100% - 18px)); }
+  .in-game main > .district-links, .in-game main > .interior-actions { left: 8px; right: 8px; bottom: 9px; max-width: calc(100% - 16px); width: auto; gap: 5px; }
+  .in-game .district-link, .in-game .interior-actions button { min-height: 48px; padding: 6px 9px; max-width: 190px; }
+  .in-game .district-link small, .in-game .interior-actions small { display: none; }
+  .in-game .district-link strong, .in-game .interior-actions strong { font-size: 10px; }
+  .in-game main > .street-links { right: 9px; bottom: 69px; }
+  .in-game .game-shell .town-controls { left: 8px; bottom: 67px; padding: 4px; }
+  .in-game .touch-controls { gap: 3px; }
+  .in-game .touch-controls button { width: 29px; height: 30px; }
+}
