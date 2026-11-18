@@ -26,6 +26,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify offline actor integration and student exercises
         run: npm run test:offline
+        env:
+          OFFLINE_SUITE: core
       - name: Verify genuine 3D rendering and movement
         run: node tests/world3d-browser.mjs
       - name: Keep verification results and screenshots
@@ -33,5 +35,34 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: offline-student-verification
+          path: test-artifacts/
+          if-no-files-found: ignore
+
+  student-simulations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        offset: [0, 20, 40, 60, 80]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify 20 of the original 100 student profiles
+        run: npm run test:offline
+        env:
+          OFFLINE_SUITE: simulation
+          STUDENTS: '20'
+          SIMULATION_OFFSET: ${{ matrix.offset }}
+      - name: Keep each batch's verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: student-simulation-${{ matrix.offset }}
           path: test-artifacts/
           if-no-files-found: ignore
