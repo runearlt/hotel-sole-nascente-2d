@@ -1,6 +1,6 @@
 {
   "timestamp": "2026-11-18",
-  "status": "Local verification passed, including camera interpolation regression; deployment must match these source hashes",
+  "status": "Deployed 3D and hosted regression verified; parallel CI batches address the single-runner timeout",
   "offline": {
     "timestamp": "2026-11-18T11:00:37.484Z",
     "mode": "offline-mocked-provider",
@@ -32,8 +32,8 @@
     "passed": true
   },
   "rendering": {
-    "timestamp": "2026-11-18T11:27:49.573Z",
-    "url": "http://127.0.0.1:58501/",
+    "timestamp": "2026-11-18T11:33:53.314Z",
+    "url": "https://hotel-sole-nascente-2d-case-conversations.onrender.com/",
     "paidCalls": 0,
     "results": [
       {
@@ -88,8 +88,10 @@
     "tests/world3d-browser.mjs": "7dfd84cda05c2290195e9811388a33d722c055dbef2be3edc487e0602c4763d9",
     "package.json": "63cc1dcdf9e0c041420ed1d82fb6670b653581915edc1d7da7dcdda12e2f2f08",
     "package-lock.json": "947c042f08736ca448db17c73a7a4a197835f7f10749f6f20a33f3023f4d7e65",
-    ".github/workflows/student-exercises.yml": "f260b34b6c086306dd986722c844dd4db9714b94398ee822d450d8d67f8ed18c",
-    "THREE_D_VERSION.md": "5e513dac24cb793595f7bde25d7ab92427bd2f9903774c3f0b61062e200eb1c0"
+    ".github/workflows/student-exercises.yml": "b79dd04218a97770b919683031b61a1cbe61f42e107fe873fa0e3ed9354629c4",
+    "THREE_D_VERSION.md": "8a9d37e21f3acf54cb59a467a1c9c17c7b411d102438298c965a589d0ed8db32",
+    "tests/run-offline.mjs": "90c8fa20b31c595a099f8af212e27f270949d99c2d12354e2ba1c433751b85d5",
+    "tests/simulate-students.mjs": "6097990c0c72d13d5fb9fb7478ffc763ccb5d8098c44d450594c751ff85647a3"
   },
   "limits": [
     "Actor responses mocked: no live provider claim",
@@ -121,5 +123,59 @@
       "blocked": 0,
       "samples": []
     }
-  ]
+  ],
+  "ciCoreVerification": {
+    "timestamp": "2026-11-18T11:41:42.668Z",
+    "mode": "offline-mocked-provider",
+    "suite": "core",
+    "studentCount": 100,
+    "simulationOffset": 0,
+    "paidCalls": 0,
+    "liveProviderVerified": false,
+    "results": [
+      {
+        "name": "unit-and-http",
+        "exitCode": 0
+      },
+      {
+        "name": "student-journeys",
+        "exitCode": 0
+      }
+    ],
+    "stats": {
+      "mockProviderCalls": 40,
+      "realProviderCalls": 0,
+      "sources": {
+        "mock": 40,
+        "boundary": 2
+      },
+      "fallbackReasons": {}
+    },
+    "passed": true
+  },
+  "ciLastBatchVerification": {
+    "timestamp": "2026-11-18T11:40:53.777Z",
+    "mode": "offline-mocked-provider",
+    "suite": "simulation",
+    "studentCount": 20,
+    "simulationOffset": 80,
+    "paidCalls": 0,
+    "liveProviderVerified": false,
+    "results": [
+      {
+        "name": "100-student-simulation",
+        "exitCode": 0
+      }
+    ],
+    "stats": {
+      "mockProviderCalls": 303,
+      "realProviderCalls": 0,
+      "sources": {
+        "mock": 303
+      },
+      "fallbackReasons": {}
+    },
+    "passed": true
+  },
+  "ciProfileEquivalence": "All 100 original profile objects compared equal to the concatenation of batches at offsets 0,20,40,60,80. No profiles, errors or checks removed."
 }
