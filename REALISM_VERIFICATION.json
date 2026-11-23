@@ -1,0 +1,89 @@
+{
+  "date": "2026-11-23",
+  "offline": {
+    "timestamp": "2026-11-23T21:05:36.002Z",
+    "mode": "offline-mocked-provider",
+    "suite": "all",
+    "studentCount": 100,
+    "simulationOffset": 0,
+    "paidCalls": 0,
+    "liveProviderVerified": false,
+    "results": [
+      {
+        "name": "unit-and-http",
+        "exitCode": 0
+      },
+      {
+        "name": "student-journeys",
+        "exitCode": 0
+      },
+      {
+        "name": "100-student-simulation",
+        "exitCode": 0
+      }
+    ],
+    "stats": {
+      "mockProviderCalls": 1555,
+      "realProviderCalls": 0,
+      "sources": {
+        "mock": 1555,
+        "boundary": 2
+      },
+      "fallbackReasons": {}
+    },
+    "passed": true
+  },
+  "graphics": {
+    "timestamp": "2026-11-23T21:06:15.341Z",
+    "url": "http://127.0.0.1:54315/",
+    "paidCalls": 0,
+    "results": [
+      {
+        "viewport": "1440x900",
+        "metrics": {
+          "triangles": 218752,
+          "calls": 186,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 25
+        },
+        "cameraAudit": {
+          "checked": 2168,
+          "blocked": 0
+        },
+        "passed": true
+      },
+      {
+        "viewport": "390x844",
+        "metrics": {
+          "triangles": 171666,
+          "calls": 139,
+          "perspective": true,
+          "webgl2": true,
+          "meshes": 25
+        },
+        "cameraAudit": {
+          "checked": 2168,
+          "blocked": 0
+        },
+        "passed": true
+      },
+      {
+        "webglUnavailable": "Helpful message and accessible workspace verified",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "sha256": {
+    "public/world-art.js": "b1f0de34498224fbb5f82bcfec816c07086b64858e754327b307276e8dea4bf3",
+    "public/world-detail.js": "8008ce10a82d22f0ec0ddfe5e36f1a52bbd96ad11482e534733e26006087fc2c",
+    "public/world3d.js": "d4cafba932754e81a8156d0af53829bbad3d98821ca7744a08b5052e11c17a3d",
+    "public/world-realism.js": "f324b6b6a128becac4d62b193d0918cb5b65f0865545dcae2f90c3bef81b64c7",
+    "public/realism-surfaces.js": "1be5d02d5a391745793c931f92f67d49659615415d1168c5660a4e098e38bbfd",
+    "tests/world3d-browser.mjs": "70c33ccff235d4d8829682880e31fb1ac38e345b66e7b2d0d15730785ca72b34",
+    "REALISM_RELEASE.md": "8fa12804872e611b5c4def97d04c912f8ebfe6818032aeeebc9b1fe010616bad"
+  },
+  "liveProviderVerified": false,
+  "limits": "See REALISM_RELEASE.md. This is improved procedural 3D, not GTA V photorealism."
+}
