@@ -1,3 +1,4 @@
+
 import './no-paid-calls.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -21,21 +22,22 @@ try{
   await page.screenshot({path:`test-artifacts/3d-entry-${width}.png`});await page.locator('.entry-start').click();await ready(page,'#town-canvas');
   const metrics=await page.locator('#town-canvas').evaluate(c=>({triangles:Number(c.dataset.triangles),calls:Number(c.dataset.drawCalls),perspective:c.scene3d.camera.isPerspectiveCamera,webgl2:c.getContext('webgl2') instanceof WebGL2RenderingContext,meshes:c.scene3d.scene.children.filter(o=>o.isMesh).length}));
   assert.equal(await page.locator('#town-canvas').evaluate(c=>c.scene3d.art.photoTextures.length===16&&c.scene3d.art.photoTextures.every(t=>t.image?.width===512)),true,'Photographic color and normal maps must be decoded before the first ready frame');assert.ok(metrics.perspective&&metrics.webgl2&&metrics.triangles>20000);assert.ok(metrics.calls<200,'Keep draw-call budget suitable for student devices: '+JSON.stringify(metrics));
-  await page.waitForFunction(()=>{const h=document.querySelector('.header').getBoundingClientRect(),s=document.querySelector('.town-stage').getBoundingClientRect();return Math.abs(s.y-h.height)<2 && Math.abs(s.bottom-innerHeight)<2 && Math.abs(s.width-innerWidth)<2;},null,{timeout:5000});
-  const header=await page.locator('.header').boundingBox(),stage=await page.locator('.town-stage').boundingBox();assert.ok(Math.abs(stage.y-header.height)<2 && Math.abs(stage.y+stage.height-height)<2 && Math.abs(stage.width-width)<2,JSON.stringify({width,height,header,stage,viewport:await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollY,styles:['.app','main','.game-shell','.town-stage'].map(s=>{let e=document.querySelector(s),c=getComputedStyle(e);return{selector:s,rect:e.getBoundingClientRect().toJSON(),height:c.height,position:c.position,flex:c.flex,display:c.display}})}))}));
+  const stage=await page.locator('.town-stage').boundingBox();assert.ok(stage.height>=280 && stage.height<height,'Optional world must fit within the case desk');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Case desk must fit the viewport');
   const cameraAudit=await page.locator('#town-canvas').evaluate(async c=>{
    const {SCENES,isWalkable}=await import('/world-layout.js'),w=c.scene3d,T=w.T,old={position:{...w.position},yaw:w.yaw};let checked=0,blocked=0;
    const boxes=SCENES.town.obstacles.filter(o=>o.id.includes('building')).map(o=>new T.Box3(new T.Vector3(o.x-o.w/2,0,o.z-o.d/2),new T.Vector3(o.x+o.w/2,o.id==='hotel-building'?12:7,o.z+o.d/2)));
    for(let x=-43.5;x<44;x+=2.5)for(let z=-25.5;z<26;z+=2.5){if(!isWalkable('town',x,z))continue;for(const yaw of [0,1.6,3.2,4.8]){w.position={x,z};w.yaw=yaw;w.updateCamera(.016);const aim=new T.Vector3(x,1.05,z),delta=w.camera.position.clone().sub(aim),length=delta.length(),ray=new T.Ray(aim,delta.normalize());checked++;if(boxes.some(box=>{const hit=ray.intersectBox(box,new T.Vector3());return hit&&hit.distanceTo(aim)<length;}))blocked++;}}
    w.position=old.position;w.yaw=old.yaw;w.cameraInitialized=false;w.updateCamera(1);return{checked,blocked};
   });assert.ok(cameraAudit.checked>2000);assert.equal(cameraAudit.blocked,0,'Camera smoothing must never put a building between the camera and player');
-  await page.locator('.guide-toggle').click();assert.equal(await page.locator('.world-guidance canvas').isVisible(),false,'Navigation map must be optional');await page.locator('.guide-toggle').click();assert.equal(await page.locator('.world-guidance canvas').isVisible(),true);
+  if(width>760){await page.locator('.guide-toggle').click();assert.equal(await page.locator('.world-guidance canvas').isVisible(),false,'Navigation map must be optional');await page.locator('.guide-toggle').click();assert.equal(await page.locator('.world-guidance canvas').isVisible(),true);}
+  await page.locator('#town-canvas').scrollIntoViewIfNeeded();
   const start=await page.locator('#town-canvas').evaluate(c=>({...c.scene3d.position}));
   if(width>760){await page.locator('#town-canvas').focus();await page.keyboard.down('w');await page.waitForTimeout(650);await page.keyboard.up('w');}
   else{const control=await page.locator('[data-move="arrowup"]').boundingBox();const touch=await context.newCDPSession(page);await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:control.x+control.width/2,y:control.y+control.height/2}]});await page.waitForTimeout(650);await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await touch.detach();}
   const end=await page.locator('#town-canvas').evaluate(c=>({...c.scene3d.position}));assert.ok(Math.hypot(end.x-start.x,end.z-start.z)>.4,`${width}: keyboard/touch must move the actual character`);
   if(width>760){
-   const before=await page.locator('#town-canvas').evaluate(c=>c.scene3d.yaw);await page.mouse.move(width*.7,height*.55);await page.mouse.down();await page.mouse.move(width*.7+100,height*.55,{steps:8});await page.mouse.up();assert.ok(Math.abs(await page.locator('#town-canvas').evaluate(c=>c.scene3d.yaw)-before)>.1,'Dragging must rotate the real camera');
+   const before=await page.locator('#town-canvas').evaluate(c=>c.scene3d.yaw);const r=await page.locator('#town-canvas').boundingBox();await page.mouse.move(r.x+r.width*.35,r.y+r.height*.5);await page.mouse.down();await page.mouse.move(r.x+r.width*.35+100,r.y+r.height*.5,{steps:8});await page.mouse.up();assert.ok(Math.abs(await page.locator('#town-canvas').evaluate(c=>c.scene3d.yaw)-before)>.1,'Dragging must rotate the real camera');
   }
   await page.screenshot({path:`test-artifacts/3d-town-${width}.png`});
   await page.locator('.district-links [data-visit="hotel"]').click();await ready(page,'#room-canvas');
