@@ -31,10 +31,10 @@ export function addGardaDetails(h){
  function ridge(z,depth,height,color,seed,rotate=0){
   const span=Math.max(90,depth*5),g=remember(new T.PlaneGeometry(660,span,100,18));g.rotateX(-Math.PI/2);const pos=g.getAttribute('position');
   for(let i=0;i<pos.count;i++){const x=pos.getX(i),v=(pos.getZ(i)+span/2)/span;const skyline=.65+.18*Math.sin(x*.029+seed)+.12*Math.sin(x*.073+seed*.6)+.045*Math.cos(x*.17+seed);pos.setY(i,height*skyline*Math.sin(Math.PI*v)**.8+Math.sin(x*.13+v*9)*Math.sin(Math.PI*v)*1.8);}
-  g.computeVertexNormals();const q=mesh(g,mat(color),0,-1,z-span/2);q.castShadow=false;q.rotation.y=rotate;return q;
+  g.computeVertexNormals();const uv=g.getAttribute('uv');for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*35,uv.getY(i)*8);const q=mesh(g,mat(color,'terrain'),0,-1,z-span/2);q.castShadow=false;q.rotation.y=rotate;return q;
  }
  if(area==='town'){
-  box(0,-.35,145,650,.4,340,mat('#a3aa86','gravel'));ridge(0,30,42,'#82917c',3,Math.PI).position.set(0,-1,155);
+  box(0,-.35,145,650,.4,340,mat('#b8c1a9','terrain'));ridge(0,30,42,'#82917c',3,Math.PI).position.set(0,-1,155);
   facade(-17,-14,28,16,9.3,'HOTEL SOLE NASCENTE');facade(-28,14,16,10,4.2,'PANIFICIO MARTA');facade(30,-15,16,12,4.5,'CANTINA SOLE');
   // Village road, raised pavements, drainage, crossings and repaired asphalt.
   box(0,.075,3,89,.06,6,mat('#666661','asphalt'));for(const z of [-.2,6.2]){box(0,.045,z,89,.16,.22,stone);box(0,.005,z+(z<0?-.19:.19),89,.05,.22,mat('#575a55'));}
@@ -49,7 +49,7 @@ export function addGardaDetails(h){
   for(const x of [-25,-16,-7])café(x,-24.5,0,x!==-16);
   for(let x=-44;x<45;x+=3){rod([x,.05,-28.1],[x,1,-28.1],.025);rod([x,1,-28.1],[x+3,1,-28.1],.025);rod([x,.46,-28.1],[x+3,.46,-28.1],.012);}
   // Animated rippled lake, enclosed by a continuous opposite shoreline and layered ridges.
-  const lakeMaterial=mat('#83abb0','water',{roughness:.24,metalness:.5,transparent:true,opacity:.94});const lake=box(0,-.46,-186,620,.04,316,lakeMaterial);lake.userData.dynamic=true;dynamic.push(lake);
+  const lakeMaterial=mat('#378b9c','water',{roughness:.16,metalness:.42});const lake=box(0,-.46,-186,620,.04,316,lakeMaterial);lake.userData.dynamic=true;dynamic.push(lake);
   ridge(-245,10,88,'#9ba9ab',4);ridge(-212,12,66,'#7f9395',1);ridge(-185,18,45,'#647e79',7);ridge(-190,18,60,'#83928a',5,Math.PI/2).position.set(-220,-1,-100);ridge(-190,18,72,'#8d9e9b',9,-Math.PI/2).position.set(220,-1,-100);
   box(0,-.65,-181,620,2,10,mat('#82907c','gravel'));
   for(let i=0;i<44;i++){const x=-180+i*8.3,y=1.4+(i%4)*.38,z=-177-(i%3);box(x,y,z,2.5+(i%3),y*2,2,mat(i%3===0?'#c5b696':'#d2c9b3','plaster'));const roof=mesh(geometry('village-roof',()=>new T.ConeGeometry(1,1,4)),mat('#8f6650','roof'),x,y*2+.6,z);roof.scale.set(2.5,.9,1.8);roof.rotation.y=Math.PI/4;}

@@ -1,3 +1,5 @@
+import {REALISM_SURFACES} from './realism-surfaces.js';
+import {createPerson,addRealism,addVine} from './world-realism.js';
 import {SURFACES} from './surface-textures.js';
 import * as T from './vendor/three-bundle.js';
 import {addGardaDetails} from './world-detail.js';
@@ -17,12 +19,12 @@ export function createWorldArt(scene,area,{mobile=false}={}){
   const t=remember(new T.CanvasTexture(c));t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(kind==='plaster'?2:4,kind==='wood'?2:4);t.anisotropy=4;return t;
  }
  const textures={stone:texture('stone'),wood:texture('wood'),roof:texture('roof'),plaster:texture('plaster'),asphalt:texture('asphalt'),gravel:texture('gravel'),water:texture('water'),linen:texture('linen')};
- const textureReady=[],photoTextures=[];const photographic={};for(const [kind,data] of Object.entries(SURFACES)){if(kind==='stone'&&area!=='town')continue;const load=uri=>{let resolve,reject;const ready=new Promise((yes,no)=>{resolve=yes;reject=no;});textureReady.push(ready);const t=remember(new T.TextureLoader().load(uri,resolve,undefined,reject));photoTextures.push(t);return t;};const color=load(data.color),normal=load(data.normal);color.colorSpace=T.SRGBColorSpace;for(const t of [color,normal]){t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=4;}photographic[kind]={color,normal};}
- function mat(color,kind='',extra={}){const key=color+kind+JSON.stringify(extra);if(!materials.has(key)){const photo=photographic[kind],m=remember(new T.MeshStandardMaterial({color,roughness:.84,...(photo?{map:photo.color,normalMap:photo.normal,normalScale:new T.Vector2(.38,.38)}:kind?{map:textures[kind],bumpMap:textures[kind],bumpScale:kind==='plaster'?.025:kind==='water'?.045:.07}:{}),...extra}));m.userData.worldSurface=photo?kind:null;materials.set(key,m);}return materials.get(key);}
+ const textureReady=[],photoTextures=[];const photographic={};for(const [kind,data] of Object.entries({...SURFACES,...REALISM_SURFACES})){if(['stone','terrain','asphalt','roof'].includes(kind)&&area!=='town')continue;const load=uri=>{let resolve,reject;const ready=new Promise((yes,no)=>{resolve=yes;reject=no;});textureReady.push(ready);const t=remember(new T.TextureLoader().load(uri,resolve,undefined,reject));photoTextures.push(t);return t;};const color=load(data.color),normal=load(data.normal);const roughness=data.roughness?load(data.roughness):null;color.colorSpace=T.SRGBColorSpace;for(const t of [color,normal,roughness].filter(Boolean)){t.wrapS=t.wrapT=T.RepeatWrapping;t.anisotropy=4;}photographic[kind]={color,normal,roughness};}
+ function mat(color,kind='',extra={}){const key=color+kind+JSON.stringify(extra);if(!materials.has(key)){const photo=photographic[kind],m=remember(new T.MeshStandardMaterial({color,roughness:.84,...(photo?{map:photo.color,normalMap:photo.normal,normalScale:new T.Vector2(.65,.65),...(photo.roughness?{roughnessMap:photo.roughness}:{})}:kind?{map:textures[kind],bumpMap:textures[kind],bumpScale:kind==='plaster'?.025:kind==='water'?.045:.07}:{}),...extra}));m.userData.worldSurface=photo?kind:null;materials.set(key,m);}return materials.get(key);}
 
  const M={stone:mat('#d5c9b5','stone'),plaster:mat('#d6c6a8','plaster'),roof:mat('#b98369','roof'),wood:mat('#d2b99b','wood'),darkwood:mat('#665849','wood'),iron:mat('#47534f','',{metalness:.5,roughness:.5}),glass:mat('#75969c','',{metalness:.28,roughness:.22}),leaf:mat('#6d7950'),trunk:mat('#786b55','wood'),linen:mat('#d9d5c4'),water:mat('#82b5b9','',{metalness:.25,roughness:.2})};
  function mesh(g,m,x,y,z,parent=root){const q=new T.Mesh(g,m);q.position.set(x,y,z);q.castShadow=true;q.receiveShadow=true;parent.add(q);return q;}
- const box=(x,y,z,w,h,d,m,parent=root)=>{let q;if(m.userData.worldSurface){const tile=m.userData.worldSurface==='stone'?2:4;const g=geometry(`box${w},${h},${d},${tile}`,()=>{const g=new T.BoxGeometry(w,h,d),uv=g.getAttribute('uv'),faces=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let face=0;face<6;face++)for(let v=0;v<4;v++){const i=face*4+v;uv.setXY(i,uv.getX(i)*faces[face][0]/tile,uv.getY(i)*faces[face][1]/tile);}return g;});q=mesh(g,m,x,y,z,parent);}else{q=mesh(geometry('box',()=>new T.BoxGeometry(1,1,1)),m,x,y,z,parent);q.scale.set(w,h,d);}return q;};
+ const box=(x,y,z,w,h,d,m,parent=root)=>{let q;if(m.userData.worldSurface){const tile=({stone:2,terrain:5,asphalt:4,roof:2,wood:2})[m.userData.worldSurface]||4;const g=geometry(`box${w},${h},${d},${tile}`,()=>{const g=new T.BoxGeometry(w,h,d),uv=g.getAttribute('uv'),faces=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let face=0;face<6;face++)for(let v=0;v<4;v++){const i=face*4+v;uv.setXY(i,uv.getX(i)*faces[face][0]/tile,uv.getY(i)*faces[face][1]/tile);}return g;});q=mesh(g,m,x,y,z,parent);}else{q=mesh(geometry('box',()=>new T.BoxGeometry(1,1,1)),m,x,y,z,parent);q.scale.set(w,h,d);}return q;};
 
  const cylinder=(x,y,z,rt,rb,h,m,parent=root,n=12)=>mesh(geometry(`cy${rt},${rb},${h},${n}`,()=>new T.CylinderGeometry(rt,rb,h,n)),m,x,y,z,parent);
  const sphere=(x,y,z,rx,ry,rz,m,parent=root)=>{const q=mesh(geometry('sphere',()=>new T.SphereGeometry(1,12,9)),m,x,y,z,parent);q.scale.set(rx,ry,rz);return q;};
@@ -57,26 +59,14 @@ export function createWorldArt(scene,area,{mobile=false}={}){
 
   for(const side of [-1,1]){cylinder(x+side*2.7,.5,front+1,.5,.36,1,M.stone);sphere(x+side*2.7,1.25,front+1,.7,.8,.7,M.leaf);}
  }
- function human(target,player=false){
-  const g=new T.Group();root.add(g);g.position.set(target.x,0,target.z);
-  const skin=mat(target.id==='marco'||target.id==='enzo'?'#b68e70':'#cfac8d');const outfit=mat(player?'#425c68':({lucia:'#566a6e',marco:'#637469',elena:'#8d7d69',marta:'#8d7c66',paolo:'#7b8175',sofia:'#78727a',giulia:'#67786b'}[target.id]||'#7d8175'));
-  const pivot=(x,y,z)=>{const q=new T.Group();q.position.set(x,y,z);g.add(q);return q;};
-  const legs=[];for(const side of [-1,1]){const p=pivot(side*.115,.82,0);cylinder(0,-.35,0,.085,.07,.7,mat('#3f4547'),p,8);box(0,-.76,.055,.16,.13,.29,mat('#343a39'),p);legs.push(p);}
-  const torso=cylinder(0,1.14,0,.22,.17,.63,outfit,g,10);torso.scale.z=.7;
-  cylinder(0,1.53,0,.065,.07,.16,skin,g,8);sphere(0,1.72,0,.12,.135,.12,skin,g);sphere(0,1.82,-.025,.125,.065,.12,mat('#504a40'),g);
-  const arms=[];for(const side of [-1,1]){const p=pivot(side*.25,1.4,0);cylinder(0,-.24,0,.065,.055,.49,outfit,p,8);sphere(0,-.52,0,.055,.075,.055,skin,p);arms.push(p);}
-  if(target.id==='elena')box(.31,1.05,.1,.04,.35,.24,M.wood,g);
-  if(target.id==='paolo'||target.id==='marta')box(0,1.03,.15,.3,.55,.025,M.linen,g);
-  box(0,.85,.125,.31,.06,.035,mat('#393d37'),g);box(0,1.39,.16,.045,.21,.025,M.linen,g);for(const side of [-1,1]){const collar=box(side*.07,1.43,.14,.1,.12,.025,M.linen,g);collar.rotation.z=side*.35;sphere(side*.047,1.75,.112,.013,.009,.012,mat('#343832'),g);sphere(side*.12,1.72,0,.022,.035,.028,skin,g);}sphere(0,1.71,.14,.028,.038,.035,skin,g);box(0,1.65,.118,.05,.009,.012,mat('#886c5b'),g);
-  const model={group:g,legs,arms,phase:0,id:target.id||'player'};people.push(model);return model;
- }
+ function human(target,player=false){const model=createPerson({T,root,box,cylinder,sphere,mat,mesh,geometry,remember},target,player);people.push(model);return model;}
  const personModels=SCENES[area].targets.filter(t=>t.kind==='person'||t.kind==='street').map(t=>({target:t,model:human(t)}));
  let player=human({id:'player',x:0,z:0},true);
  if(area==='town'){
-  box(0,-.25,0,94,.5,58,mat('#bbc2a1','gravel'));
+  box(0,-.25,0,94,.5,58,mat('#d4d9c7','terrain'));
   box(0,.015,3,87,.05,12,M.stone);box(-17,.025,-1,11,.06,25,M.stone);box(-27,.025,13,20,.06,23,M.stone);box(29,.025,-1,12,.06,25,M.stone);
   building(-17,-14,28,16,9.3,'HOTEL SOLE NASCENTE');building(-28,14,16,10,4.2,'MARTA’S BAKERY',{bakery:true});building(30,-15,16,12,4.5,'SOLE VINEYARD',{winery:true});
-  for(let row=0;row<7;row++)for(let n=0;n<8;n++){const x=21+n*2.6,z=12+row*1.65,y=groundHeight(area,x,z);for(let k=0;k<5;k++)sphere(x-.55+k*.27,y+.9+Math.sin(k+n)*.12,z+Math.sin(k)*.15,.28,.22,.2,mat(k%2?'#75845c':'#5e724c'));if(n%3===0)sphere(x+.25,y+.82,z+.22,.11,.18,.1,mat('#625a6a'));}
+  for(let row=0;row<7;row++)for(let n=0;n<8;n++){const x=21+n*2.6,z=12+row*1.65,y=groundHeight(area,x,z);addVine({T,root,mat,mesh,geometry,remember,cylinder,sphere},x,y,z,n+row*8);}
   for(const [x,z] of [[-39,-3],[-33,-3],[-5,-3],[16,-5],[41,-4],[-14,8],[-12,20],[12,21],[40,22],[-40,22]])tree(x,z,4.7,'olive');
   for(const [x,z] of [[-33,-23],[-1,-23],[-36,-21],[-2,-20],[20,-24],[41,-24],[17,-15],[42,-15]])tree(x,z,6.5);
   for(const [x,z] of [[-12,5],[12,5],[-12,22],[12,22],[19,-4],[-36,4]])lamp(x,z);
@@ -119,9 +109,10 @@ export function createWorldArt(scene,area,{mobile=false}={}){
   sign('Exit to town',0,2,d-.08,2.4,Math.PI);
   const light=new T.PointLight('#ffe8bd',35,28,2);light.position.set(0,3,1);root.add(light);
  }
+ addRealism({T,root,area,mobile,box,cylinder,sphere,mat,mesh,geometry,remember,tree});
  const detail=addGardaDetails({T,root,area,mobile,box,cylinder,sphere,mat,mesh,geometry,remember,sign,tree});
  // Consolidate non-articulated human parts while retaining limb pivots and animation.
- for(const person of people){for(const group of [person.group,...person.legs,...person.arms]){root.updateMatrixWorld(true);const buckets=new Map();for(const o of group.children.filter(o=>o.isMesh)){const k=o.material.uuid;if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(o);}for(const list of buckets.values()){if(list.length<2)continue;const inv=group.matrixWorld.clone().invert(),geos=list.map(o=>o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)),g=T.mergeGeometries(geos,false);geos.forEach(g=>g.dispose());if(g){const q=new T.Mesh(remember(g),list[0].material);q.castShadow=true;q.receiveShadow=true;group.add(q);list.forEach(o=>o.removeFromParent());}}}}
+ for(const person of people){for(const group of [person.group,...person.legs,...person.arms,...(person.knees||[]),...(person.elbows||[])]){root.updateMatrixWorld(true);const buckets=new Map();for(const o of group.children.filter(o=>o.isMesh)){const k=o.material.uuid;if(!buckets.has(k))buckets.set(k,[]);buckets.get(k).push(o);}for(const list of buckets.values()){if(list.length<2)continue;const inv=group.matrixWorld.clone().invert(),geos=list.map(o=>o.geometry.clone().applyMatrix4(o.matrixWorld).applyMatrix4(inv)),g=T.mergeGeometries(geos,false);geos.forEach(g=>g.dispose());if(g){const q=new T.Mesh(remember(g),list[0].material);q.castShadow=true;q.receiveShadow=true;group.add(q);list.forEach(o=>o.removeFromParent());}}}}
  // Merge static objects sharing materials into a small set of GPU draw calls.
  root.updateMatrixWorld(true);const staticMeshes=[];root.traverse(o=>{if(o.isMesh&&!o.userData.dynamic&&!o.parent?.userData.dynamic&&!people.some(p=>p.group===o || p.group.getObjectById(o.id)))staticMeshes.push(o);});
  const buckets=new Map();for(const o of staticMeshes){const key=o.material.uuid;if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(o);}
@@ -131,6 +122,6 @@ export function createWorldArt(scene,area,{mobile=false}={}){
  }
  return {root,player,personModels,resources,textureReady,photoTextures,geometryCount:geometries.size,dispose(){resources.forEach(r=>r.dispose?.());root.removeFromParent();},animate(time,moving){
   detail.animate(time);
-  for(const p of people){const walking=p===player&&moving;const a=walking?Math.sin(time*8)*.45:Math.sin(time*1.2+p.group.id)*.015;p.legs[0].rotation.x=a;p.legs[1].rotation.x=-a;p.arms[0].rotation.x=-a*.7;p.arms[1].rotation.x=a*.7;}
+  for(const p of people){const walking=p===player&&moving;const a=walking?Math.sin(time*8)*.45:Math.sin(time*1.2+p.group.id)*.015;p.legs[0].rotation.x=a;p.legs[1].rotation.x=-a;p.arms[0].rotation.x=-a*.7;p.arms[1].rotation.x=a*.7;if(p.knees)for(let i=0;i<2;i++)p.knees[i].rotation.x=walking?Math.max(0,Math.sin(time*8+(i?Math.PI:0)))*.55:.03; if(p.elbows)for(const e of p.elbows)e.rotation.x=-.1; if(!walking)p.group.rotation.z=Math.sin(time*.7+p.group.id)*.003;}
  }};
 }
