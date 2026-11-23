@@ -1,3 +1,4 @@
+
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -58,20 +59,19 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(await page.locator('.entry-start').evaluate(el=>el===document.activeElement),true,'Start screen focus must wrap to Start investigation');
     await click(`[data-mode="${mode}"]`);
     assert.equal(Math.round((await page.locator('#main').boundingBox()).width),width,'Game must use the full viewport width');
-    await page.waitForFunction(() => {
-      const stage=document.querySelector('.town-stage'),canvas=document.querySelector('#town-canvas');
-      if(!stage||!canvas)return false;
-      const s=stage.getBoundingClientRect(),c=canvas.getBoundingClientRect();
-      return Math.abs(s.bottom-innerHeight)<2 && c.width>=s.width-1 && c.height>=s.height-1;
-    });
+    await page.locator('.team-card[data-contact="lucia"]').waitFor();
+    assert.equal(await page.locator('.team-card').count(),3,'All hotel contacts must be directly available');
     const fullStage=await page.locator('.town-stage').boundingBox();
-    const topBar=await page.locator('.header').boundingBox();
-    assert.ok(Math.abs(fullStage.y-(topBar.y+topBar.height))<2,'Map must start directly below the header');
-    assert.ok(Math.abs(fullStage.y+fullStage.height-height)<2,`Map must reach the bottom of the viewport: ${JSON.stringify(fullStage)} vs ${height}`);
-    const fullCanvas=await page.locator('#town-canvas').boundingBox();
-    assert.ok(fullCanvas.width>=fullStage.width-1 && fullCanvas.height>=fullStage.height-1,'Playable map must cover the entire stage');
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px town overflows`);
+    assert.ok(fullStage.height>=280 && fullStage.height<height,'3D setting must leave space for the case desk');
+    assert.equal(await page.locator('.case-path li').count(),5,'Five meaningful learning milestones');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px case desk overflows`);
 
+    await page.screenshot({path:`test-artifacts/student-case-desk-${width}.png`,fullPage:true});
+    await click('.team-card[data-contact="lucia"]');
+    await page.locator('#free-question-input').waitFor();
+    await click('.interview-switch [data-person="marco"]');
+    assert.match(await page.locator('.scene-dialogue-head').innerText(),/Marco/,'Students can switch contacts without walking or closing the interview');
+    await closeTalk();await click('.tabs [data-view="town"]');
     await click('.tabs [data-action="workspace"]');
     await page.locator('[data-form="case-hotel-demand"] [name="intercept"]').waitFor();
     await fill(page.locator('[data-form="case-hotel-demand"]'), {intercept:170,slope:-1});
@@ -142,6 +142,7 @@ async function runJourney(width, height, mode = 'free') {
     await click('.scene-dialogue [data-action="workspace"]');
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(), 0);
     assert.doesNotMatch(await page.locator('.mini-task').innerText(), /262|196\.5|1\.333/);
+    await page.screenshot({path:`test-artifacts/student-calculations-${width}.png`});
     await fill(page.locator('[data-form="case-hotel-demand"]'), { intercept: 170, slope: -1 });
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(), 0);
     await fill(page.locator('[data-form="case-hotel-demand"]'), { intercept: 262, slope: -4/3 });
