@@ -1,3 +1,4 @@
+
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -58,27 +59,18 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(await page.locator('.entry-start').evaluate(el=>el===document.activeElement),true,'Start screen focus must wrap to Start investigation');
     await click(`[data-mode="${mode}"]`);
     assert.equal(Math.round((await page.locator('#main').boundingBox()).width),width,'Game must use the full viewport width');
-    await page.waitForFunction(() => {
-      const stage=document.querySelector('.town-stage'),canvas=document.querySelector('#town-canvas');
-      if(!stage||!canvas)return false;
-      const s=stage.getBoundingClientRect(),c=canvas.getBoundingClientRect();
-      return Math.abs(s.bottom-innerHeight)<2 && c.width>=s.width-1 && c.height>=s.height-1;
-    });
-    const fullStage=await page.locator('.town-stage').boundingBox();
-    const topBar=await page.locator('.header').boundingBox();
-    assert.ok(Math.abs(fullStage.y-(topBar.y+topBar.height))<2,'Map must start directly below the header');
-    assert.ok(Math.abs(fullStage.y+fullStage.height-height)<2,`Map must reach the bottom of the viewport: ${JSON.stringify(fullStage)} vs ${height}`);
-    const fullCanvas=await page.locator('#town-canvas').boundingBox();
-    assert.ok(fullCanvas.width>=fullStage.width-1 && fullCanvas.height>=fullStage.height-1,'Playable map must cover the entire stage');
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}px town overflows`);
+    assert.equal(await page.locator('canvas,[data-move]').count(),0,'Point-and-click experience has no walking controls or player canvas');
+    assert.equal(await page.locator('.building-hotspot').count(),3);
+    assert.equal(await page.locator('.town-overview img').isVisible(),true);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Town fits the viewport');
 
     await click('.tabs [data-action="workspace"]');
     await page.locator('[data-form="case-hotel-demand"] [name="intercept"]').waitFor();
     await fill(page.locator('[data-form="case-hotel-demand"]'), {intercept:170,slope:-1});
     assert.equal(await page.locator('[data-form="case-hotel-mr"]').count(),0,'Incorrect equation must not unlock the next exercise');
     await page.locator('[aria-label="Close workspace"]').click();
-    await click('.game-go');
-    await click('.game-go');
+    await click('.building-hotspot.hotel');
+    await click('.person-hotspot[data-person="lucia"]');
     if (mode === 'free') {
       assert.equal(await page.locator('.scene-question').count(), 0, 'free mode must hide prepared questions');
       await page.locator('#free-question-input').focus();
@@ -154,7 +146,7 @@ async function runJourney(width, height, mode = 'free') {
     let resumedHistory;
     await page.route('**/api/actor', route => { resumedHistory = route.request().postDataJSON().history; return route.continue(); });
     await click('.mini-tool-links [data-action="dialogue"]');
-    assert.equal(await page.locator('.conversation-history').count(), 0, 'conversation memory must reset on reload');
+    assert.equal(await page.locator('.conversation-history').count(), 1, 'Saved conversation history must survive reload');
     await page.locator('#free-question-input').fill('What is the room capacity?');
     await click('.free-question button[type="submit"]');
     await page.locator('.scene-speech').getByText(/80 rooms/).waitFor();
@@ -192,7 +184,7 @@ async function runJourney(width, height, mode = 'free') {
     await click('[data-mode="free"]');
     await page.getByRole('heading', { name: 'Hotel case completed', exact: true }).waitFor();
     await click('.mini-head [data-action="close-overlay"]');
-    await click('.game-go');
+    await click('.tabs [data-view="notebook"]');
     await page.getByRole('heading', { name: 'Field notebook', exact: true }).waitFor();
     assert.match(await page.locator('.panel.full').first().innerText(), /Saved rate/);
     const downloadPromise = page.waitForEvent('download');
@@ -208,16 +200,16 @@ async function runJourney(width, height, mode = 'free') {
     assert.equal(exported.state.caseHotel.interpretation.revenue, 10260);
     await click('.screen-head [data-view="hotel"]');
     await click('.interior-actions [data-view="town"]');
-    assert.match(await page.locator('.game-objective').innerText(), /Hotel case complete/);
+    assert.equal(await page.locator('.meeting-progress .done').count(),5);
 
     await click('[data-visit="bakery"]');
-    await click('.game-go');
+    await click('.person-hotspot');
     await ask('order', 'cost');
     await closeTalk();
     await click('.interior-actions [data-person="paolo"]');
     await ask('one', 'two', 'three');
     await closeTalk();
-    await click('.game-go[data-action="workspace"]');
+    await click('.table-workbook');
     assert.equal(await page.locator('.observation-table').isVisible(), true);
     await fill(page.locator('[data-form="bakery-test"]'), {bakers:2,predictedExtra:99,predictedCost:1,prediction:60});
     assert.doesNotMatch(await page.evaluate(()=>JSON.parse(localStorage.getItem('sole-bay-simulation-v1')).breakfast.feedback),/€76|20 extra|contributes 20/,'Wrong bakery answers must not expose worked results');
@@ -230,13 +222,13 @@ async function runJourney(width, height, mode = 'free') {
     await town();
 
     await click('[data-visit="winery"]');
-    await click('.game-go');
+    await click('.person-hotspot');
     await ask('options', 'taste');
     await closeTalk();
     await click('.interior-actions [data-person="giulia"]');
     await ask('stock', 'forecast');
     await closeTalk();
-    await click('.game-go[data-action="workspace"]');
+    await click('.table-workbook');
     const wine = page.locator('[data-form="winery-decide"]');
     await wine.locator('[name="choice"][value="house"]').check();
     await fill(wine,{predictedEstate:0,predictedHouse:40,predictedCost:1,reason});
@@ -276,7 +268,7 @@ try {
   await privatePage.goto(URL,{waitUntil:'domcontentloaded'});
   await privatePage.locator('[data-mode="free"]').click();
   await privatePage.getByText(/Browser storage is unavailable/).waitFor();
-  assert.equal(await privatePage.locator('#town-canvas').isVisible(),true,'Blocked storage must not prevent play');
+  assert.equal(await privatePage.locator('.town-overview').isVisible(),true,'Blocked storage must not prevent play');
   await privateContext.close();
   const migrationContext = await browser.newContext();
   const migrationPage = await migrationContext.newPage();
