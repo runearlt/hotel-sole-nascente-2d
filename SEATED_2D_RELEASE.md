@@ -1,0 +1,11 @@
+# Seated 2D experience
+
+Based on the earlier working 2D API branch, origin/api-version at d583e7d. The approved hotel facts, EUR/80-room demonstration, actor boundaries, calculations, validation, save key and migration rules are preserved. The original illustrated town remains the clickable overview.
+
+Students enter buildings directly, sit across a table from the staff, select people to ask free-text questions, and open the workbook shown on the table. No player avatar, walking controller, canvas or WebGL engine is instantiated. All staff are available from the start. Conversations, unsubmitted questions and workbook drafts remain available when switching people or reloading. Old notebook interview entries are used to restore per-person conversation history.
+
+The hotel, bakery and winery illustrations were generated with the built-in image-generation tool, inspected and converted to self-hosted WebP assets. Originals remain in the generated-images directory; production copies are public/assets/hotel-meeting-v1.webp, bakery-meeting-v1.webp and winery-meeting-v1.webp. No stock photographs, external image requests or live API calls are required to display the scenes.
+
+Prompt set: professional hand-painted 16:9 editorial game illustrations, first-person seated eye-level view across a walnut meeting table, blank workbook closest to the viewer, realistic adult proportions, quiet Mediterranean daylight, Lake Garda surroundings, no interface/text/numbers/equations. Hotel: Lucia at left (navy/ivory), Marco at centre (olive jacket/blue shirt), Elena at right (charcoal/rust), window overlooking Lake Garda. Bakery: Marta (cream/rust apron) at left, Paolo (sage/linen apron) at right, oven and bread racks. Winery: Sofia (plum/linen) at left, Giulia (sage) at right, barrels, tasting glasses and vineyard view. The characters are fictional illustrations.
+
+Validation: existing unit/HTTP checks, full visible desktop/phone exercise journeys, 100 offline student profiles, and additional seated-workflow checks for role boundaries, direct entry, keyboard/modal navigation, unfinished drafts, reload history and optional meetings. All actor calls in automated verification are mocked or offline; this is not proof of live provider credit availability. Screenshots are saved under test-artifacts/seated-*.png.
