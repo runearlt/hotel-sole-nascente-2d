@@ -1,7 +1,9 @@
+
+import {townScene,meetingScene,MEETINGS,restoreInterviewHistory} from './seated-scenes.js';
 import { SCENARIO, ACTORS } from './config.js';
 import { bakeryOutcome, wineOutcome, eur, round } from './economics.js';
-import { Town, STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
-import { BusinessInterior, ROOM_STAFF } from './interior.js';
+import { STREET_PEOPLE, streetChoice, bestStreetChoice } from './town.js';
+import { ROOM_STAFF } from './interior.js';
 import { answerFreeQuestion, FREE_AGENTS } from './free-agents.js';
 import { numericInput } from './input-checks.js';
 import { blankCaseHotel, caseHotelTask, evaluateCaseHotel, caseHotelComplete, caseHotelStage } from './case-hotel.js';
@@ -56,16 +58,18 @@ if (stored && stored.mapVersion !== 2) {
 }
 state.scratchpads ||= {};
 for (const actor of ['hotel', 'bakery', 'winery']) state.scratchpads[actor] = { ...emptyScratch(), ...state.scratchpads[actor] };
-let town = null, interior = null, toastTimer = null, lastMoveSave = 0, storageUnavailable = false;
+let toastTimer = null, storageUnavailable = false;
+state.questionDrafts ||= {};
 const pendingQuestions = new Map();
-const conversations = new Map(); // Per actor, current page session only; notebook evidence stays saved.
+const conversations = restoreInterviewHistory(state.log,ROOM_STAFF); // Rebuild per-person history from saved evidence, including older sessions.
 let conversationId=crypto.randomUUID();
 const roomPerson = (actor = state.actor) => ROOM_STAFF[actor]?.[state.roomPeople[actor]];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const fmt = n => Number.isFinite(n) ? round(n, 2).toString() : '—';
 function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); storageUnavailable=false; } catch { storageUnavailable=true; } }
 function captureDraft(form) {
-  if (!form?.matches('[data-form]') || form.dataset.form === 'free-question') return;
+  if (!form?.matches('[data-form]')) return;
+  if(form.dataset.form==='free-question'){state.questionDrafts[state.roomPeople[state.actor]]=form.elements.question.value;save();return;}
   state.drafts[form.dataset.form] = Object.fromEntries(new FormData(form));
   save();
 }
@@ -99,9 +103,10 @@ async function askFree(text) {
   if (!input) return;
   const actor = state.actor, personId = state.roomPeople[actor], requestState = state;
   if (pendingQuestions.has(personId)) return;
+  delete state.questionDrafts[personId];
   pendingQuestions.set(personId, { input, requestState });
   render();
-  const history = (conversations.get(personId) || []).slice(-6);
+  const history = (conversations.get(personId) || []).slice(-30);
   const fallback = () => answerFreeQuestion(personId, input, { nextPeriodGuests: nextPeriodGuests(), history });
   let result;
   try {
@@ -122,21 +127,17 @@ async function askFree(text) {
   const permitted = new Set(FREE_AGENTS[personId].facts.map(fact => fact.id));
   for (const id of new Set([result.factId, ...(Array.isArray(result.factIds) ? result.factIds : [])])) if (permitted.has(id) && !asked(actor, id)) state.interviews[actor].push(id);
   if (state.roomPeople[actor] === personId) state.replies[actor] = { id: result.factId, answer: result.answer };
-  record('question', actor, input, { answer: result.answer, speaker: person.name, mode: 'free', factId: result.factId, source: result.source, reason: result.reason, requestId: result.requestId });
+  record('question', actor, input, { answer: result.answer, speaker: person.name, personId, mode: 'free', factId: result.factId, source: result.source, reason: result.reason, requestId: result.requestId });
   render();
 }
 function visit(actor) {
   if (!ACTORS[actor]) return;
-  if (town) { town.destroy(); town = null; }
-  if (interior) { interior.destroy(); interior = null; }
   state.actor = actor;
   state.view = actor; state.overlay = null; state[`${actor}Player`].color = state.player.color;
   if (!state.visits.includes(actor)) { state.visits.push(actor); record('visit', actor, `Entered ${actor === 'hotel' ? 'Hotel Sole Nascente' : actor === 'bakery' ? 'Marta’s Bakery' : 'Sole Vineyard'}`); }
   save(); render(); window.scrollTo(0, 0);
 }
 function go(view) {
-  if (town) { town.destroy(); town = null; }
-  if (interior) { interior.destroy(); interior = null; }
   if (view === 'notebook') state.notebookReturn = ROOM_IDS.includes(state.view) ? state.view : 'town';
   if (ROOM_IDS.includes(view)) state.actor = view;
   state.view = view; state.overlay = null; save(); render(); window.scrollTo(0, 0);
@@ -144,7 +145,8 @@ function go(view) {
 function closeOverlay() {
   state.overlay = null;
   save(); render();
-  document.querySelector('#town-canvas, #room-canvas')?.focus();
+  const target=ROOM_IDS.includes(state.view)?`.person-hotspot[data-person="${state.roomPeople[state.actor]}"]`:'.building-hotspot';
+  main.querySelector(target)?.focus();
 }
 function openWorkspace() {
   entryOpen = false;
@@ -153,7 +155,7 @@ function openWorkspace() {
   if (state.view !== 'town' && !ROOM_IDS.includes(state.view)) state.view = state.actor;
   state.overlay = 'workspace'; save(); render(); window.scrollTo(0, 0);
 }
-function openDialogue() { state.overlay = 'dialogue'; save(); render(); }
+function openDialogue() { if(!ROOM_IDS.includes(state.view))visit(state.actor||'hotel');state.overlay = 'dialogue'; save(); render(); }
 function talkRoomPerson(id) {
   const actor = state.view;
   if (!ROOM_STAFF[actor]?.[id]) return;
@@ -190,48 +192,23 @@ function nextTask() {
 }
 function nextPeriodGuests() { return SCENARIO.wine.dinnerGuests - SCENARIO.wine.outsideDiners; }
 function dinnerBottles() { return Math.ceil((nextPeriodGuests() + SCENARIO.wine.outsideDiners) * SCENARIO.wine.bottlesPerDiner); }
+function progressTrail() {
+ const p=state.caseHotel,marks=[has('hotel',['price','bookings','other','comparable','full','costs']),!!p.demand,!!p.mr,!!p.elasticity,!!p.interpretation];
+ const labels=['Gather evidence','Model demand','Analyse revenue','Interpret elasticity','Recommend a rate'];
+ const current=marks.findIndex(v=>!v);
+ return `<ol class="meeting-progress" aria-label="Hotel case progress">${labels.map((label,i)=>`<li class="${marks[i]?'done':i===current?'current':''}" ${i===current?'aria-current="step"':''}><span>${marks[i]?'✓':i+1}</span>${label}</li>`).join('')}</ol>`;
+}
 function townView() {
-  const task = nextTask();
-  const breakfast = state.breakfast.decision;
-  const milestones = [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.demand, !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation];
-  const finished = milestones.filter(Boolean).length;
-  return `<div class="game-heading"><div><p class="eyebrow">80-room EUR demonstration</p><h1>Hotel Sole Nascente</h1></div><span class="game-day">${finished} / ${milestones.length} hotel steps</span></div><p class="notice">${caseHotelComplete(state.caseHotel) ? 'Hotel case completed. Export your notebook for instructor review. Try the optional extensions if you wish.' : 'Main assignment: derive revenue functions, calculate price elasticity and test a room rate. Follow the current objective to interview staff and complete your calculations and analysis.'} Bakery, wine and street exercises use separate illustrative data and are optional.</p>
-    <div class="mode-status"><span>Conversations: <b>Ask your own questions</b></span></div>
-    <section class="game-shell" aria-label="Riviera district">
-      <div class="town-stage"><canvas id="town-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable Italian coastal district. Enter the hotel, bakery, or vineyard; Ana and Enzo walk the streets with optional utility questions. Arrow keys or WASD move; E interacts. People and buildings can also be clicked."></canvas><div class="mobile-map-label hotel"><b>HOTEL SOLE NASCENTE</b><span>Pricing · demand · elasticity</span></div><div class="mobile-map-label bakery"><b>MARTA’S BAKERY</b><span>Production theory</span></div><div class="mobile-map-label winery"><b>SOLE VINEYARD</b><span>Wine purchasing</span></div>${state.overlay === 'street' ? streetOverlay() : state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
-      <div class="game-status"><div class="game-objective"><span>Current objective</span><strong>${esc(task.label)}</strong></div><button class="game-go" data-visit="${task.actor}">Enter ${task.actor === 'hotel' ? 'hotel' : task.actor === 'bakery' ? 'bakery' : 'vineyard'} <span aria-hidden="true">→</span></button><div class="game-steps" role="img" aria-label="${finished} of ${milestones.length} milestones complete">${milestones.map(done => `<i class="${done ? 'done' : ''}"></i>`).join('')}</div></div>
-      <div class="town-controls"><div class="touch-controls" aria-label="Movement controls"><button data-move="arrowleft" aria-label="Move left" title="Move left">◀</button><button data-move="arrowup" aria-label="Move up" title="Move up">▲</button><button data-move="arrowdown" aria-label="Move down" title="Move down">▼</button><button data-move="arrowright" aria-label="Move right" title="Move right">▶</button><button data-action="talk" aria-label="Talk nearby" title="Talk nearby">✦</button></div></div>
-    </section>
-    <nav class="district-links" aria-label="Places to visit">${[['hotel', 'Hotel Sole Nascente · Main case', 'Lucia, Marco, Elena · Demand, revenue and pricing'], ['bakery', 'Marta’s Bakery · Optional', 'Marta, Paolo · Production and marginal product'], ['winery', 'Sole Vineyard · Optional', 'Sofia, Giulia · Wine supply and purchasing']].map(([id, name, topic]) => `<button class="district-link" data-visit="${id}"><span class="district-symbol ${id}" aria-hidden="true"></span><span><strong>${name}</strong><small>${topic}</small></span><span aria-hidden="true">→</span></button>`).join('')}</nav>
-    <nav class="street-links" aria-label="Optional street exercises"><span>Street practice · Utility maximization</span>${STREET_PEOPLE.map(person => `<button data-street="${person.id}"><b>${esc(person.name)}</b><small>${esc(person.role)} · ${state.street[person.id]?.solved ? 'Solved' : 'Quick choice'}</small><span aria-hidden="true">→</span></button>`).join('')}</nav>
-    <details class="hotel-ledger"><summary>Case and extensions <span>${state.log.length} notes saved</span></summary><div class="ledger-content"><div><div class="metric-row"><span>Demonstration hotel</span><strong>80 rooms</strong></div><div class="metric-row"><span>Hotel case</span><strong>${state.caseHotel.interpretation ? 'Advice saved' : 'In progress'}</strong></div><div class="metric-row"><span>Bakery extension</span><strong>${breakfast ? `${breakfast.served} / 60 served` : 'To arrange'}</strong></div></div><div><p>The active hotel demonstration uses EUR and requested rooms for one night. Bakery and winery use separate illustrative euro data; their fixed guest counts are independent of the hotel pricing decision.</p></div></div></details>`;
+ return `<div class="scene-heading"><div><p class="eyebrow">MANAGERIAL CITY · LAKE GARDA</p><h1>Your investigation starts here.</h1><p>Choose a building to enter. Speak with the team, gather the evidence and make your recommendation.</p></div><a href="student-case.html" target="_blank" rel="noopener">Read the hotel brief ↗</a></div>${progressTrail()}<div class="scene-host">${townScene()}${state.overlay==='street'?streetOverlay():state.overlay==='workspace'?workspaceOverlay():''}</div><nav class="district-links" aria-label="Places to visit">${[['hotel','Hotel Sole Nascente','Main case · Demand, revenue and pricing'],['bakery','Marta’s Bakery','Optional · Production and marginal product'],['winery','Sole Vineyard','Optional · Wine supply and purchasing']].map(([id,name,description])=>`<button class="district-link" data-visit="${id}"><strong>${name}</strong><small>${description}</small><span>Enter ↗</span></button>`).join('')}</nav><nav class="street-links" aria-label="Optional street exercises"><span>Optional street encounters</span>${STREET_PEOPLE.map(p=>`<button data-street="${p.id}">${esc(p.name)} · ${state.street[p.id]?.solved?'Completed':'Utility exercise'} ↗</button>`).join('')}</nav>`;
 }
 function roomView(actor) {
-  const staff = ROOM_STAFF[actor], guide = roomGuide(actor);
-  const task = nextTask();
-  const extensionComplete = actor === 'bakery' ? !!state.breakfast.decision?.reflection : actor === 'winery' ? !!state.winery.reflection && !state.winery.needsReview : false;
-  const townNext = actor !== 'hotel' && extensionComplete;
-  const steps = actor === 'hotel'
-    ? [has('hotel', ['price', 'bookings', 'other', 'comparable', 'full', 'costs']), !!state.caseHotel.demand, !!state.caseHotel.mr, !!state.caseHotel.elasticity, !!state.caseHotel.interpretation]
-    : actor === 'bakery'
-      ? [has('bakery', ['order', 'cost']), has('bakery', ['one', 'two', 'three']), state.breakfast.runs.some(run => run.verified), !!state.breakfast.decision, !!state.breakfast.decision?.reflection]
-      : [has('winery', ['options', 'taste']), has('winery', ['stock', 'forecast']), !!state.winery.choice && !state.winery.needsReview, !!state.winery.reflection];
-  const finished = steps.filter(Boolean).length;
-  const objective = guide ? `Talk to ${staff[guide].name}` : actor === 'hotel' ? task.label : townNext ? 'Optional extension complete' : 'Open the calculation workspace';
-  const place = actor === 'hotel' ? 'Hotel Sole Nascente · Ground floor' : actor === 'bakery' ? 'Marta’s Bakery · Kitchen' : 'Sole Vineyard · Tasting room';
-  const title = actor === 'hotel' ? 'Inside the hotel' : actor === 'bakery' ? 'Inside the bakery' : 'Inside the vineyard';
-  return `<div class="game-heading"><div><p class="eyebrow">${place}</p><h1>${title}</h1></div><span class="game-day">${finished} / ${steps.length} room steps</span></div>
-    <section class="game-shell business-shell" aria-label="${esc(title)}">
-      <div class="town-stage room-stage ${actor}-room"><canvas id="room-canvas" width="1800" height="1080" tabindex="0" aria-label="Walkable ${actor} interior with ${Object.values(staff).map(p => p.name).join(' and ')}, a calculation workspace, and a town exit. Move with arrow keys or WASD; E interacts. People and places can be clicked."></canvas>${state.overlay === 'dialogue' ? dialogueOverlay() : state.overlay === 'workspace' ? workspaceOverlay() : ''}</div>
-      <div class="game-status"><div class="game-objective"><span>Current objective</span><strong>${esc(objective)}</strong></div>${guide ? `<button class="game-go" data-person="${guide}">Talk to ${esc(staff[guide].name)} <span aria-hidden="true">→</span></button>` : actor === 'hotel' && caseHotelComplete(state.caseHotel) ? '<button class="game-go" data-view="notebook">Review notebook →</button>' : townNext ? `<button class="game-go" data-view="town">Return to town <span aria-hidden="true">→</span></button>` : `<button class="game-go" data-action="workspace">Open workspace <span aria-hidden="true">→</span></button>`}<div class="game-steps" role="img" aria-label="${finished} of ${steps.length} room steps complete">${steps.map(done => `<i class="${done ? 'done' : ''}"></i>`).join('')}</div></div>
-      <div class="town-controls"><span>Walk to a person or click them to talk. The desk opens your calculations.</span><div class="touch-controls" aria-label="Movement controls"><button data-move="arrowleft" aria-label="Move left" title="Move left">◀</button><button data-move="arrowup" aria-label="Move up" title="Move up">▲</button><button data-move="arrowdown" aria-label="Move down" title="Move down">▼</button><button data-move="arrowright" aria-label="Move right" title="Move right">▶</button><button data-action="talk" aria-label="Interact nearby" title="Interact nearby">✦</button></div></div>
-    </section>
-    <nav class="interior-actions" aria-label="${esc(title)} locations">${Object.entries(staff).map(([id, person]) => `<button data-person="${id}"><strong>${esc(person.name)}</strong><small>${esc(person.role)}</small></button>`).join('')}<button data-action="workspace"><strong>Workspace</strong><small>${actor === 'hotel' ? 'Demand, MR and elasticity' : actor === 'bakery' ? 'Output and marginal product' : 'Quantities and purchasing'}</small></button><button data-view="town"><strong>Town</strong><small>Leave this room</small></button></nav>`;
+ const staff=ROOM_STAFF[actor],meeting=MEETINGS[actor];
+ return `<div class="scene-heading"><div><p class="eyebrow">${actor==='hotel'?'MAIN HOTEL CASE':'OPTIONAL EXTENSION'} · ${meeting.location}</p><h1>${meeting.title}</h1><p>You’re at the table. Select a staff member to speak, or open the workbook in front of you.</p></div><button class="back-to-town" data-view="town">← Back to town</button></div>${progressTrail()}<div class="scene-host meeting-host">${meetingScene(actor,staff,esc)}${state.overlay==='dialogue'?dialogueOverlay():state.overlay==='workspace'?workspaceOverlay():''}</div><nav class="interior-actions" aria-label="Meeting controls">${Object.entries(staff).map(([id,p])=>`<button data-person="${id}"><strong>${esc(p.name)}</strong><small>${esc(p.role)}</small></button>`).join('')}<button data-action="workspace"><strong>Your workbook</strong><small>Calculations, evidence and recommendation</small></button><button data-view="town"><strong>Leave the meeting</strong><small>Return to the town overview</small></button></nav><p class="meeting-note">Your conversations, notes and unfinished calculations are saved in this browser. Return to any colleague whenever you need more information.</p>`;
 }
 function dialogueOverlay() {
   const id = state.actor, actor = ACTORS[id], current = state.replies[id];
   const speaker = ROOM_IDS.includes(state.view) ? roomPerson(id) : actor;
-  const turns = (conversations.get(state.roomPeople[id]) || []).slice(-4).reverse().map(turn => ({ detail: turn.question, data: { answer: turn.answer, source: turn.source, reason: turn.reason } }));
+  const turns = (conversations.get(state.roomPeople[id]) || []).slice(-30).reverse().map(turn => ({ detail: turn.question, data: { answer: turn.answer, source: turn.source, reason: turn.reason } }));
   const pending = pendingQuestions.get(state.roomPeople[id]);
   const latest = turns[0]?.data;
   const fallbackLabels = {offline_mode:'Offline mode',missing_api_key:'AI is not configured',model_output_rejected:'AI response did not meet case rules',daily_limit:'Daily AI call limit reached',concurrency_limit:'AI temporarily busy',session_rate_limit:'Please pause before asking again',ip_rate_limit:'AI temporarily busy',authentication_error:'AI connection needs attention'};
@@ -242,8 +219,8 @@ function dialogueOverlay() {
     ${turns.length ? `<div class="student-turn"><b>You asked:</b> ${esc(turns[0].detail)}</div>` : ''}<div class="scene-speech" aria-live="polite"><div class="scene-avatar ${id}" aria-hidden="true">${esc(speaker.name.slice(0, 1))}</div><p>${esc(turns[0]?.data.answer || speaker.introduction)}</p></div>
     ${pending ? '<small role="status">Waiting for a reply… You can close this conversation while it loads.</small>' : ''}${replyLabel ? `<small class="reply-source" role="status">${esc(replyLabel)}</small>` : ''}
     ${turns.length > 1 ? `<details class="conversation-history"><summary>Earlier in this conversation</summary>${turns.slice(1).reverse().map(row => `<p><b>You:</b> ${esc(row.detail)}<br><b>${esc(speaker.name)}:</b> ${esc(row.data.answer)}</p>`).join('')}</details>` : ''}
-    <form class="free-question" data-form="free-question" aria-busy="${Boolean(pending)}"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required value="${esc(pending?.input || '')}" ${pending ? 'disabled' : ''} placeholder="Type your own question…"><button type="submit" ${pending ? 'disabled' : ''}>${pending ? 'Waiting…' : 'Ask'}</button></div><small>Ask for facts; you work out the calculation and decision.</small></form>
-    <div class="scene-dialogue-foot"><button type="button" class="scene-primary" data-action="workspace">Open ${id === 'hotel' ? 'hotel case' : id === 'bakery' ? 'production' : 'purchasing'} workspace →</button><button type="button" data-view="notebook" class="scene-secondary">Notebook</button></div>
+    <form class="free-question" data-form="free-question" aria-busy="${Boolean(pending)}"><label for="free-question-input">Your question for ${esc(speaker.name)}</label><div><input id="free-question-input" name="question" maxlength="400" autocomplete="off" required value="${esc(pending?.input || state.questionDrafts[state.roomPeople[id]] || '')}" ${pending ? 'disabled' : ''} placeholder="Type your own question…"><button type="submit" ${pending ? 'disabled' : ''}>${pending ? 'Waiting…' : 'Ask'}</button></div><small>Ask for facts; you work out the calculation and decision.</small></form>
+    <nav class="interview-switch" aria-label="Meeting colleagues"><span>Speak with</span>${Object.entries(ROOM_STAFF[id]).map(([key,p])=>`<button type="button" data-person="${key}" ${state.roomPeople[id]===key?'disabled':''}>${esc(p.name)}</button>`).join('')}</nav><div class="scene-dialogue-foot"><button type="button" class="scene-primary" data-action="workspace">Open ${id === 'hotel' ? 'hotel case' : id === 'bakery' ? 'production' : 'purchasing'} workspace →</button><button type="button" data-view="notebook" class="scene-secondary">Notebook</button></div>
   </section>`;
 }
 function openStreet(id) {
@@ -301,10 +278,10 @@ function workspaceOverlay() {
   const id = state.actor, actor = ACTORS[id];
   const contact = ROOM_IDS.includes(state.view) ? roomPerson(id) : actor;
   const task = id === 'hotel' ? caseHotelTask(state.caseHotel, state.interviews.hotel, esc) : id === 'bakery' ? bakeryTask() : wineryTask();
-  const latest = state.log.filter(entry => entry.actor === id && entry.kind === 'question').slice(0, 3);
+  const latest = state.log.filter(entry => entry.actor === id && entry.kind === 'question');
   return `<div class="scene-shade"></div><section class="mini-workspace business-${id}" role="dialog" aria-modal="true" aria-label="${id === 'hotel' ? 'Hotel' : esc(actor.name)} calculation workspace">
-    <div class="mini-head"><div><small>${esc(contact.role)} · ${id === 'hotel' ? 'EUR demonstration' : 'Optional extension'}</small><strong>${id === 'hotel' ? 'Hotel case exercises' : id === 'bakery' ? 'Breakfast production' : 'Wine purchasing'}</strong></div><button type="button" data-action="close-overlay" aria-label="Close workspace" title="Close workspace">×</button></div>
-    <div class="mini-columns"><aside class="mini-tools"><div class="mini-tool-links"><button type="button" class="scene-secondary" data-action="dialogue">← Talk to ${esc(contact.name)}</button><button type="button" class="scene-secondary" data-view="notebook">Notebook</button></div><details class="mini-evidence"><summary>Field notes <small>${latest.length} recent</small></summary><div>${latest.length ? latest.map(entry => `<div class="mini-note"><b>${esc(entry.detail)}</b><p>${esc(entry.data?.answer || '')}</p></div>`).join('') : '<p>No evidence yet. Talk to the owner to begin.</p>'}</div></details><div class="formula-tool"><button type="button" data-action="formula-help" aria-expanded="false" aria-controls="formula-help-${id}">Formula help <span aria-hidden="true">?</span></button><div id="formula-help-${id}" class="formula-content" hidden>${formulaHelp(id)}</div></div>${scratchpad(id)}</aside><div class="mini-task">${task}${id === 'hotel' ? `<div class="button-row"><button class="button secondary" data-action="hint">Need a hint?</button></div>${hintText('hotel')}` : ''}</div></div>
+    <div class="mini-head"><div><small>${id === 'hotel' ? 'At the hotel meeting table · EUR demonstration' : 'At the '+(id==='bakery'?'bakery work table':'winery tasting table')+' · Optional extension'}</small><strong>${id === 'hotel' ? 'Hotel case exercises' : id === 'bakery' ? 'Breakfast production' : 'Wine purchasing'}</strong></div><button type="button" data-action="close-overlay" aria-label="Close workspace" title="Close workspace">×</button></div>
+    <div class="mini-columns"><aside class="mini-tools"><div class="mini-tool-links"><button type="button" class="scene-secondary" data-action="dialogue">← Talk to ${esc(contact.name)}</button><button type="button" class="scene-secondary" data-view="notebook">Notebook</button></div><details class="mini-evidence" open><summary>Collected evidence <small>${latest.length} saved</small></summary><div>${latest.length ? latest.map(entry => `<div class="mini-note"><small>${esc(entry.data?.speaker||'Hotel team')}</small><b>${esc(entry.detail)}</b><p>${esc(entry.data?.answer || '')}</p></div>`).join('') : '<p>No evidence yet. Ask the team about the information you need.</p>'}</div></details><div class="formula-tool"><button type="button" data-action="formula-help" aria-expanded="false" aria-controls="formula-help-${id}">Formula help <span aria-hidden="true">?</span></button><div id="formula-help-${id}" class="formula-content" hidden>${formulaHelp(id)}</div></div>${scratchpad(id)}</aside><div class="mini-task">${task}${id === 'hotel' ? `<div class="button-row"><button class="button secondary" data-action="hint">Need a hint?</button></div>${hintText('hotel')}` : ''}</div></div>
   </section>`;
 }
 function reflectionForm(actor, value = '') {
@@ -372,14 +349,12 @@ function notebookView() {
   <section class="panel full"><h2>Current results</h2><div class="field-grid"><div><div class="metric-row"><span>Hotel TR and MR</span><strong>${state.caseHotel.mr ? 'Completed' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel elasticity</span><strong>${state.caseHotel.elasticity ? 'Reference elasticity checked' : 'To explore'}</strong></div><div class="metric-row"><span>Hotel advice</span><strong>${state.caseHotel.interpretation ? 'Saved' : 'To write'}</strong></div></div><div><div class="metric-row"><span>Bakery extension</span><strong>${state.breakfast.decision ? `${state.breakfast.decision.bakers} bakers` : 'Not decided'}</strong></div><div class="metric-row"><span>Wine extension</span><strong>${state.winery.choice ? (state.winery.choice === 'house' ? 'House' : 'Mixed') : 'Not decided'}</strong></div></div></div><p class="muted" style="font-size:12px">The active hotel demonstration uses EUR and an 80-room limit. Bakery and winery are separate illustrative euro exercises. Export your notebook before clearing browser storage.</p></section></div>`;
 }
 function render() {
-  if (town) { town.destroy(); town = null; }
-  if (interior) { interior.destroy(); interior = null; }
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === state.view));
   document.querySelector('#notebook-count').textContent = state.log.length;
   const showEntry = entryOpen || !state.mode;
   document.body.classList.toggle('at-entry', showEntry);
   document.body.classList.toggle('in-game', !showEntry);
-  document.querySelector('.header').inert = showEntry;
+  document.querySelector('.header').inert = showEntry || !!state.overlay;
   main.innerHTML = showEntry ? modeView() : state.view === 'town' ? townView() : ROOM_IDS.includes(state.view) ? roomView(state.view) : notebookView();
   if (storageUnavailable) main.insertAdjacentHTML('afterbegin', '<p class="notice" role="status">Browser storage is unavailable. Keep this tab open and export your notebook before leaving; your work cannot survive a reload.</p>');
   restoreDrafts();
@@ -387,20 +362,7 @@ function render() {
     requestAnimationFrame(() => { if (!main.querySelector('.entry-card')?.contains(document.activeElement)) main.querySelector('[data-mode]')?.focus({preventScroll:true}); });
     return;
   }
-  if (state.view === 'town') {
-    town = new Town(document.querySelector('#town-canvas'), state.player, visit, (_, force) => {
-      const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
-    }, label => toast(`${label} opens in a later district. Try the hotel, bakery, or vineyard.`), openStreet);
-    town.paused = !!state.overlay;
-  } else if (ROOM_IDS.includes(state.view)) {
-    const actor = state.view;
-    interior = new BusinessInterior(document.querySelector('#room-canvas'), state[`${actor}Player`], actor, talkRoomPerson, () => { state.actor = actor; openWorkspace(); }, () => go('town'), force => {
-      const now = Date.now(); if (force || now - lastMoveSave > 800) { lastMoveSave = now; save(); }
-    }, roomGuide(actor));
-    interior.paused = !!state.overlay;
-  }
   if (state.view === 'town' || ROOM_IDS.includes(state.view)) {
-    bindTouch();
     if (state.overlay) requestAnimationFrame(() => {
       if (main.querySelector('[role="dialog"]')?.contains(document.activeElement)) return;
       const selector = state.overlay === 'dialogue' ? '#free-question-input' : state.overlay === 'street' ? '.street-options button' : '.mini-task input, .mini-task select, .mini-task textarea, .mini-tool-links button';
@@ -409,14 +371,7 @@ function render() {
   }
 }
 function modeView() {
-  return `<section class="investigation-entry" aria-labelledby="mode-title"><div class="entry-world" aria-hidden="true"></div><div class="entry-veil" aria-hidden="true"></div><section class="entry-card" role="dialog" aria-modal="true" aria-labelledby="mode-title" aria-describedby="entry-description"><p class="entry-kicker">A managerial economics investigation</p><p class="entry-location">THE ITALIAN COAST · HOTEL SOLE NASCENTE</p><h1 id="mode-title">Investigate the hotel.<br>Build your recommendation.</h1><p id="entry-description">Step inside an 80-room hotel. Interview the staff, gather the evidence and work out your own pricing recommendation.</p><div class="entry-steps" aria-label="Your investigation"><span>01 <b>Ask questions</b></span><span>02 <b>Do the calculations</b></span><span>03 <b>Make your case</b></span></div><button type="button" class="entry-start" data-mode="free">Start investigation <span aria-hidden="true">→</span></button><p class="entry-resume">${state.mode ? 'Your saved investigation will continue where you left off.' : 'Your calculations and notes are saved in this browser.'}</p><a class="entry-brief" href="student-case.html" target="_blank" rel="noopener">Read the student case brief ↗</a><p class="entry-optional">The hotel is the main case. Bakery, wine and street exercises are optional.</p></section><p class="entry-footer">HOTEL SOLE NASCENTE <span>Investigate. Calculate. Decide.</span></p></section>`;
-}
-function bindTouch() {
-  document.querySelectorAll('[data-move]').forEach(button => {
-    const key = button.dataset.move;
-    button.addEventListener('pointerdown', e => { e.preventDefault(); button.setPointerCapture(e.pointerId); (interior || town)?.setControl(key, true); });
-    for (const type of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(type, e => { e.preventDefault(); (interior || town)?.setControl(key, false); });
-  });
+  return `<section class="investigation-entry" aria-labelledby="mode-title"><div class="entry-world" aria-hidden="true"></div><div class="entry-veil" aria-hidden="true"></div><section class="entry-card" role="dialog" aria-modal="true" aria-labelledby="mode-title" aria-describedby="entry-description"><p class="entry-kicker">A managerial economics investigation</p><p class="entry-location">LAKE GARDA, ITALY · HOTEL SOLE NASCENTE</p><h1 id="mode-title">Take a seat.<br>Make your case.</h1><p id="entry-description">Enter the hotel, meet the team and gather your evidence. Work out the pricing decision yourself, with your workbook at the table.</p><div class="entry-steps" aria-label="Your investigation"><span>01 <b>Ask questions</b></span><span>02 <b>Do the calculations</b></span><span>03 <b>Make your case</b></span></div><button type="button" class="entry-start" data-mode="free">Enter the town <span aria-hidden="true">→</span></button><p class="entry-resume">${state.mode ? 'Your saved investigation will continue where you left off.' : 'Your calculations and notes are saved in this browser.'}</p><a class="entry-brief" href="student-case.html" target="_blank" rel="noopener">Read the student case brief ↗</a><p class="entry-optional">The hotel is the main case. Bakery, wine and street exercises are optional.</p></section><p class="entry-footer">HOTEL SOLE NASCENTE <span>Investigate. Calculate. Decide.</span></p></section>`;
 }
 function feedback(actor, message) { state[actor === 'bakery' ? 'breakfast' : actor].feedback = message; save(); render(); }
 function handleForm(form) {
@@ -577,7 +532,6 @@ main.addEventListener('click', e => {
     main.querySelector('[data-scratch-field="notes"]').value = pad.notes;
     save(); return;
   }
-  if (action.dataset.action === 'talk') { (interior || town)?.interact(); return; }
   if (action.dataset.action === 'hint') {
     const actor = state.actor, stage = actor === 'hotel' ? caseHotelStage(state.caseHotel) : null;
     const key = stage ? `hotel-${stage}` : actor;
@@ -610,7 +564,6 @@ window.addEventListener('keydown', e => {
     const first=controls[0],last=controls.at(-1);
     if (first && (!dialog.contains(document.activeElement) || (e.shiftKey && document.activeElement===first) || (!e.shiftKey && document.activeElement===last))) {e.preventDefault();(e.shiftKey?last:first).focus();}
   }
-  if (!(e.target instanceof Element && e.target.closest('input, textarea, select')) && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
 document.querySelector('#restart').addEventListener('click', () => { if (!confirm('Restart this simulation? This clears all saved interviews, tests, and decisions on this device.')) return; localStorage.removeItem(KEY); conversations.clear(); pendingQuestions.clear(); conversationId=crypto.randomUUID(); state = blank(); entryOpen = true; render(); toast('New simulation started'); });
 render();
